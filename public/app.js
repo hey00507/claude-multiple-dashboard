@@ -36,6 +36,7 @@ let activeEventFilter = 'all';
 let activeProjectFilter = 'all';
 let searchQuery = '';
 let notificationsEnabled = false;
+let inactiveSessionsOpen = false;
 
 const detailPanel = document.getElementById('detail-panel');
 const detailTitle = document.getElementById('detail-title');
@@ -141,9 +142,56 @@ function sortSessions(list) {
   });
 }
 
+function renderSessionCard(s) {
+  const icon = STATUS_ICONS[s.status] || '❓';
+  const idleHtml = s.idleSince
+    ? `<span class="idle-time" data-since="${s.idleSince}">⏱ idle ${formatDuration(Date.now() - new Date(s.idleSince).getTime())}</span>`
+    : '';
+
+  let activity = '';
+  let viewBtn = '';
+  if (s.status === 'active' && s.lastToolUsed) {
+    activity = `Tool: ${s.lastToolUsed}`;
+  } else if (s.status === 'waiting_input') {
+    if (s.lastResponse) {
+      activity = `🤖 "${truncate(s.lastResponse, 80)}"`;
+      if (s.lastResponse.length > 80) {
+        viewBtn = `<button class="btn-view" data-modal-title="🤖 Response" data-modal-text="${htmlEscape(s.lastResponse)}">view</button>`;
+      }
+    } else {
+      activity = s.lastPrompt ? `💬 "${truncate(s.lastPrompt, 50)}"` : '응답 완료 — 입력 대기 중';
+    }
+  } else if (s.status === 'waiting_permission') {
+    activity = '🔒 권한 승인 대기';
+  } else if (s.status === 'ended') {
+    activity = '세션 종료';
+  } else if (s.status === 'disconnected') {
+    activity = '연결 끊김';
+  }
+
+  const selected = s.sessionId === selectedSessionId ? ' selected' : '';
+
+  return `
+    <div class="session-card${selected}" data-session-id="${s.sessionId}">
+      <div class="top-row">
+        <span class="project-name">
+          <span class="status-dot ${s.status}"></span>${icon}
+          <span class="project-name-text" data-session-id="${s.sessionId}">${htmlEscape(s.projectName)}</span>
+          <button class="btn-rename" data-session-id="${s.sessionId}" title="이름 변경">✏️</button>
+        </span>
+        ${idleHtml}
+      </div>
+      <div class="cwd">${s.cwd.replace(/^\/Users\/[^/]+/, '~')}</div>
+      <div class="last-activity">${activity}${viewBtn}</div>
+    </div>
+  `;
+}
+
 function renderSessions() {
+  const ACTIVE_STATUSES = ['active', 'waiting_input', 'waiting_permission'];
+
   // Update header count
-  const active = sessions.filter(s => s.status === 'active' || s.status === 'waiting_input' || s.status === 'waiting_permission');
+  const active = sessions.filter(s => ACTIVE_STATUSES.includes(s.status));
   sessionCountEl.textContent = active.length > 0 ? `${active.length}개 활성 세션` : '';
 
   if (sessions.length === 0) {
@@ -160,51 +208,42 @@ function renderSessions() {
   }
 
   const sorted = sortSessions([...sessions]);
+  const activeSessions = sorted.filter(s => ACTIVE_STATUSES.includes(s.status));
+  const inactiveSessions = sorted.filter(s => !ACTIVE_STATUSES.includes(s.status));
 
-  sessionsEl.innerHTML = sorted.map(s => {
-    const icon = STATUS_ICONS[s.status] || '❓';
-    const idleHtml = s.idleSince
-      ? `<span class="idle-time" data-since="${s.idleSince}">⏱ idle ${formatDuration(Date.now() - new Date(s.idleSince).getTime())}</span>`
-      : '';
+  let html = '';
 
-    let activity = '';
-    let viewBtn = '';
-    if (s.status === 'active' && s.lastToolUsed) {
-      activity = `Tool: ${s.lastToolUsed}`;
-    } else if (s.status === 'waiting_input') {
-      if (s.lastResponse) {
-        activity = `🤖 "${truncate(s.lastResponse, 80)}"`;
-        if (s.lastResponse.length > 80) {
-          viewBtn = `<button class="btn-view" data-modal-title="🤖 Response" data-modal-text="${htmlEscape(s.lastResponse)}">view</button>`;
-        }
-      } else {
-        activity = s.lastPrompt ? `💬 "${truncate(s.lastPrompt, 50)}"` : '응답 완료 — 입력 대기 중';
-      }
-    } else if (s.status === 'waiting_permission') {
-      activity = '🔒 권한 승인 대기';
-    } else if (s.status === 'ended') {
-      activity = '세션 종료';
-    } else if (s.status === 'disconnected') {
-      activity = '연결 끊김';
-    }
+  // Active sessions — always visible
+  if (activeSessions.length > 0) {
+    html += activeSessions.map(renderSessionCard).join('');
+  } else {
+    html += '<p class="empty-state" style="padding:16px 0">활성 세션 없음</p>';
+  }
 
-    const selected = s.sessionId === selectedSessionId ? ' selected' : '';
-
-    return `
-      <div class="session-card${selected}" data-session-id="${s.sessionId}">
-        <div class="top-row">
-          <span class="project-name">
-            <span class="status-dot ${s.status}"></span>${icon}
-            <span class="project-name-text" data-session-id="${s.sessionId}">${htmlEscape(s.projectName)}</span>
-            <button class="btn-rename" data-session-id="${s.sessionId}" title="이름 변경">✏️</button>
-          </span>
-          ${idleHtml}
+  // Inactive sessions — collapsible
+  if (inactiveSessions.length > 0) {
+    const openAttr = inactiveSessionsOpen ? ' open' : '';
+    html += `
+      <details class="inactive-sessions-group"${openAttr}>
+        <summary class="inactive-sessions-toggle">
+          종료/비활성 세션 (${inactiveSessions.length}개)
+        </summary>
+        <div class="inactive-sessions-list">
+          ${inactiveSessions.map(renderSessionCard).join('')}
         </div>
-        <div class="cwd">${s.cwd.replace(/^\/Users\/[^/]+/, '~')}</div>
-        <div class="last-activity">${activity}${viewBtn}</div>
-      </div>
+      </details>
     `;
-  }).join('');
+  }
+
+  sessionsEl.innerHTML = html;
+
+  // Persist toggle state
+  const details = sessionsEl.querySelector('.inactive-sessions-group');
+  if (details) {
+    details.addEventListener('toggle', () => {
+      inactiveSessionsOpen = details.open;
+    });
+  }
 }
 
 function matchesEventFilter(log) {
