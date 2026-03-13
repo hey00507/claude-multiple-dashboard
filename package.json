@@ -1,6 +1,6 @@
 {
   "name": "claude-multiple-dashboard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Monitor multiple Claude Code sessions in parallel — real-time dashboard with idle time tracking",
   "type": "module",
   "bin": {
