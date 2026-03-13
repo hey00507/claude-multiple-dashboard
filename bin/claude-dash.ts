@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
+import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { createServer } from '../src/server.js';
@@ -17,6 +18,17 @@ const STATUS_ICONS: Record<string, string> = {
 };
 
 const PID_FILE = path.join(DATA_DIR, 'server.pid');
+const LOG_FILE = path.join(DATA_DIR, 'server.log');
+
+function savePortToConfig(port: number) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const cfgPath = path.join(DATA_DIR, 'config.json');
+  const cfg = fs.existsSync(cfgPath)
+    ? JSON.parse(fs.readFileSync(cfgPath, 'utf-8'))
+    : { logRetentionDays: 30, autoOpenBrowser: true, sessionTimeoutMinutes: 60 };
+  cfg.port = port;
+  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+}
 const CLAUDE_SETTINGS = path.join(process.env.HOME || '~', '.claude', 'settings.json');
 // In dev: bin/ → ../hooks/  In dist: dist/bin/ → ../../hooks/
 const HOOK_SRC_DEV = path.join(import.meta.dirname, '..', 'hooks', 'dashboard-hook.sh');
@@ -94,10 +106,51 @@ program
 
 program
   .command('start')
-  .description('Start the dashboard server')
+  .description('Start the dashboard server (background by default)')
   .option('-p, --port <port>', 'Port number', String(DEFAULT_PORT))
+  .option('--foreground', 'Run in foreground (default: background)')
   .action(async (opts) => {
     const port = Number(opts.port);
+
+    // Background mode: spawn detached child with --foreground flag
+    if (!opts.foreground) {
+      // Check if server is already running
+      if (fs.existsSync(PID_FILE)) {
+        const pid = Number(fs.readFileSync(PID_FILE, 'utf-8').trim());
+        try {
+          process.kill(pid, 0); // signal 0 = check if alive
+          console.log(`서버가 이미 실행 중입니다 (PID: ${pid}). 먼저 \`claude-dash stop\` 으로 중지하세요.`);
+          return;
+        } catch {
+          // Process dead, clean up stale PID file
+          fs.unlinkSync(PID_FILE);
+        }
+      }
+
+      savePortToConfig(port);
+
+      const logFd = fs.openSync(LOG_FILE, 'a');
+      const args = ['start', '-p', String(port), '--foreground'];
+
+      // Use tsx in dev, node in production
+      const scriptPath = import.meta.filename;
+      const isTsx = scriptPath.endsWith('.ts');
+      const cmd = isTsx ? 'tsx' : 'node';
+      const spawnArgs = isTsx ? [scriptPath, ...args] : [scriptPath, ...args];
+
+      const child = spawn(cmd, spawnArgs, {
+        detached: true,
+        stdio: ['ignore', logFd, logFd],
+        env: { ...process.env },
+      });
+
+      child.unref();
+      console.log(`✓ 대시보드 서버 백그라운드 시작: http://localhost:${port} (PID: ${child.pid})`);
+      console.log(`  로그: ${LOG_FILE}`);
+      process.exit(0);
+    }
+
+    // Foreground mode: actual server startup
     const app = await createServer(port);
     startProcessScanner();
 
@@ -119,18 +172,11 @@ program
       }
     }
 
-    // Save port to config.json so hook script can read it
-    const cfgPath = path.join(DATA_DIR, 'config.json');
-    if (fs.existsSync(cfgPath)) {
-      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-      cfg.port = port;
-      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
-    }
+    savePortToConfig(port);
 
     await app.listen({ port, host: '0.0.0.0' });
 
     // Write PID file
-    fs.mkdirSync(DATA_DIR, { recursive: true });
     fs.writeFileSync(PID_FILE, String(process.pid));
 
     console.log(`Dashboard server running at http://localhost:${port} (PID: ${process.pid})`);
@@ -211,25 +257,44 @@ program
   .option('-p, --port <port>', 'Port number', String(DEFAULT_PORT))
   .action(async (opts) => {
     const port = Number(opts.port);
-    const app = await createServer(port);
-    startProcessScanner();
 
-    // Save port to config.json so hook script can read it
-    const cfgPath = path.join(DATA_DIR, 'config.json');
-    if (fs.existsSync(cfgPath)) {
-      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-      cfg.port = port;
-      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+    // Background start + open browser
+    if (fs.existsSync(PID_FILE)) {
+      const pid = Number(fs.readFileSync(PID_FILE, 'utf-8').trim());
+      try {
+        process.kill(pid, 0);
+        // Server already running, just open browser
+        const open = (await import('open')).default;
+        await open(`http://localhost:${port}`);
+        console.log(`Dashboard opened at http://localhost:${port} (기존 서버 사용)`);
+        return;
+      } catch {
+        fs.unlinkSync(PID_FILE);
+      }
     }
 
-    await app.listen({ port, host: '0.0.0.0' });
+    savePortToConfig(port);
 
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(PID_FILE, String(process.pid));
+    const logFd = fs.openSync(LOG_FILE, 'a');
+    const scriptPath = import.meta.filename;
+    const isTsx = scriptPath.endsWith('.ts');
+    const cmd = isTsx ? 'tsx' : 'node';
+    const args = ['start', '-p', String(port), '--foreground'];
 
+    const child = spawn(cmd, [scriptPath, ...args], {
+      detached: true,
+      stdio: ['ignore', logFd, logFd],
+      env: { ...process.env },
+    });
+
+    child.unref();
+
+    // Wait briefly for server to start, then open browser
+    await new Promise(resolve => setTimeout(resolve, 1500));
     const open = (await import('open')).default;
     await open(`http://localhost:${port}`);
-    console.log(`Dashboard opened at http://localhost:${port}`);
+    console.log(`✓ 대시보드 서버 백그라운드 시작 + 브라우저 열기: http://localhost:${port} (PID: ${child.pid})`);
+    process.exit(0);
   });
 
 function formatDuration(ms: number): string {
