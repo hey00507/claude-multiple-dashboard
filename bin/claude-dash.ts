@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { createServer } from '../src/server.js';
 import { getAllSessions } from '../src/services/session-store.js';
+import { startProcessScanner } from '../src/services/process-scanner.js';
 import { DATA_DIR, DEFAULT_PORT } from '../src/config.js';
 
 const STATUS_ICONS: Record<string, string> = {
@@ -94,6 +95,7 @@ program
   .action(async (opts) => {
     const port = Number(opts.port);
     const app = await createServer(port);
+    startProcessScanner();
     await app.listen({ port, host: '0.0.0.0' });
 
     // Write PID file
@@ -153,6 +155,7 @@ program
   .action(async (opts) => {
     const port = Number(opts.port);
     const app = await createServer(port);
+    startProcessScanner();
     await app.listen({ port, host: '0.0.0.0' });
 
     fs.mkdirSync(DATA_DIR, { recursive: true });

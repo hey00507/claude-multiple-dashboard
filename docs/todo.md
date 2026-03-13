@@ -54,7 +54,7 @@
 - [x] `claude-dash start` → 서버 기동
 - [x] 이벤트 수신 확인 (SessionStart → UserPromptSubmit → PostToolUse → Stop 전체 플로우)
 - [x] API 응답 확인 (세션 상태 전이, 로그 기록, idle time 설정)
-- [ ] 브라우저에서 대시보드 확인 (세션 카드 + idle time) — 실제 Claude 세션 사용 시 확인 예정
+- [x] 브라우저에서 대시보드 확인 (세션 카드 + idle time)
 
 ---
 
