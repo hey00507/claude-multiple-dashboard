@@ -3,7 +3,8 @@ import { Command } from 'commander';
 import fs from 'fs';
 import path from 'path';
 import { createServer } from '../src/server.js';
-import { getAllSessions } from '../src/services/session-store.js';
+import { getAllSessions, cleanEndedSessions } from '../src/services/session-store.js';
+import { deleteLogs } from '../src/services/log-store.js';
 import { startProcessScanner } from '../src/services/process-scanner.js';
 import { DATA_DIR, DEFAULT_PORT } from '../src/config.js';
 
@@ -17,7 +18,10 @@ const STATUS_ICONS: Record<string, string> = {
 
 const PID_FILE = path.join(DATA_DIR, 'server.pid');
 const CLAUDE_SETTINGS = path.join(process.env.HOME || '~', '.claude', 'settings.json');
-const HOOK_SRC = path.join(import.meta.dirname, '..', 'hooks', 'dashboard-hook.sh');
+// In dev: bin/ → ../hooks/  In dist: dist/bin/ → ../../hooks/
+const HOOK_SRC_DEV = path.join(import.meta.dirname, '..', 'hooks', 'dashboard-hook.sh');
+const HOOK_SRC_DIST = path.join(import.meta.dirname, '..', '..', 'hooks', 'dashboard-hook.sh');
+const HOOK_SRC = fs.existsSync(HOOK_SRC_DEV) ? HOOK_SRC_DEV : HOOK_SRC_DIST;
 const HOOK_DEST = path.join(process.env.HOME || '~', '.claude', 'hooks', 'dashboard-hook.sh');
 
 const HOOK_EVENTS = [
@@ -96,6 +100,33 @@ program
     const port = Number(opts.port);
     const app = await createServer(port);
     startProcessScanner();
+
+    // Clean ended sessions older than 24 hours
+    const { deleted } = cleanEndedSessions();
+    if (deleted > 0) console.log(`✓ 종료된 세션 ${deleted}개 정리`);
+
+    // Auto-clean old logs based on logRetentionDays
+    const configPath = path.join(DATA_DIR, 'config.json');
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      const retentionDays = config.logRetentionDays || 30;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - retentionDays);
+      const cutoffStr = cutoff.toISOString().split('T')[0];
+      const logResult = deleteLogs(cutoffStr);
+      if (logResult.deletedDays > 0) {
+        console.log(`✓ ${retentionDays}일 이전 로그 정리: ${logResult.deletedDays}일분 (${logResult.deletedFiles}개 파일)`);
+      }
+    }
+
+    // Save port to config.json so hook script can read it
+    const cfgPath = path.join(DATA_DIR, 'config.json');
+    if (fs.existsSync(cfgPath)) {
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      cfg.port = port;
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+    }
+
     await app.listen({ port, host: '0.0.0.0' });
 
     // Write PID file
@@ -149,6 +180,32 @@ program
   });
 
 program
+  .command('clean')
+  .description('Clean old logs and ended sessions')
+  .option('--before <date>', 'Delete logs before this date (YYYY-MM-DD)')
+  .option('--days <days>', 'Delete logs older than N days', '30')
+  .action((opts) => {
+    let cutoffStr: string;
+    if (opts.before) {
+      cutoffStr = opts.before;
+    } else {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - Number(opts.days));
+      cutoffStr = cutoff.toISOString().split('T')[0];
+    }
+
+    const logResult = deleteLogs(cutoffStr);
+    console.log(`✓ ${cutoffStr} 이전 로그 삭제: ${logResult.deletedDays}일분 (${logResult.deletedFiles}개 파일)`);
+
+    const { deleted } = cleanEndedSessions();
+    if (deleted > 0) console.log(`✓ 종료된 세션 ${deleted}개 정리`);
+
+    if (logResult.deletedDays === 0 && deleted === 0) {
+      console.log('정리할 항목이 없습니다.');
+    }
+  });
+
+program
   .command('open')
   .description('Start server and open dashboard in browser')
   .option('-p, --port <port>', 'Port number', String(DEFAULT_PORT))
@@ -156,6 +213,15 @@ program
     const port = Number(opts.port);
     const app = await createServer(port);
     startProcessScanner();
+
+    // Save port to config.json so hook script can read it
+    const cfgPath = path.join(DATA_DIR, 'config.json');
+    if (fs.existsSync(cfgPath)) {
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      cfg.port = port;
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+    }
+
     await app.listen({ port, host: '0.0.0.0' });
 
     fs.mkdirSync(DATA_DIR, { recursive: true });

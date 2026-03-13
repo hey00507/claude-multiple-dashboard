@@ -28,49 +28,65 @@
 - [x] 히스토리 프로젝트명 + 상태 아이콘 표시 (sessionId → projectName)
 - [x] 히스토리 테이블 정렬 수정 (time/project/detail 고정 그리드)
 - [x] README 설치 가이드 작성
+- [x] 히스토리 이벤트 타입 필터 (전체/프롬프트/응답/도구/세션)
+- [x] 히스토리 프로젝트별 필터 드롭다운
+- [x] README 상세 리뉴얼 (아키텍처, 화면 구성, FAQ, 스크린샷 자리)
 
 ---
 
 ## Phase 2: 웹 대시보드 완성
 
-### 2-1. 세션 상세 뷰
-- [ ] 세션 카드 클릭 → 사이드 패널 또는 확장 영역
-- [ ] 타임라인 뷰: 프롬프트(💬), 응답(🤖), 도구 사용, Stop 이벤트 시간순 표시
-- [ ] 해당 세션의 로그만 필터링 조회
+### 2-1. 세션 상세 뷰 ✅
+- [x] 세션 카드 클릭 → 사이드 패널 (420px)
+- [x] 타임라인 뷰: 프롬프트(💬), 응답(🤖), 도구 사용, Stop 이벤트 시간순 표시
+- [x] 해당 세션의 로그만 필터링 조회 (GET /api/logs?sessionId=...)
+- [x] 메타 정보 (상태, 디렉토리, 시작/종료 시간, 총 이벤트)
+- [x] 삭제 버튼 (비활성 세션만)
+- [x] SSE 실시간 타임라인 갱신
+- [x] 긴 내용 view full 버튼
 
-### 2-2. 히스토리 개선
-- [ ] 날짜 선택 드롭다운 (최근 7일)
-- [ ] 페이지네이션 또는 무한 스크롤
+### 2-2. 히스토리 개선 ✅
+- [x] 날짜 선택 드롭다운 (최근 7일)
+- [x] 페이지네이션 (더 보기 버튼, 50개 단위)
+- [x] SSE 실시간 갱신은 오늘 날짜 조회 시에만 동작
 
-### 2-3. UI 다듬기
-- [ ] 세션 카드 정렬: active → waiting → ended, 같은 상태 내 최근 활동순
-- [ ] 빈 상태 메시지 개선 (첫 사용 가이드)
-- [ ] 로딩/에러 상태 처리
+### 2-3. UI 다듬기 ✅
+- [x] 세션 카드 정렬: active → waiting_permission → waiting_input → disconnected → ended
+- [x] 빈 상태 메시지 개선 (첫 사용 가이드: claude-dash init 안내)
+- [x] 로딩/에러 상태 처리 (세션, 히스토리 모두)
+- [x] 헤더에 활성 세션 수 표시
+- [x] Esc 키: 모달 열려있으면 모달 닫기, 아니면 디테일 패널 닫기
 
 ---
 
 ## Phase 3: 안정화 & 고도화
 
-### 3-1. 로그 관리
-- [ ] `claude-dash clean --before YYYY-MM-DD` CLI 명령
-- [ ] logRetentionDays 기반 자동 정리 (서버 시작 시)
+### 3-1. 로그 관리 ✅
+- [x] `claude-dash clean --before YYYY-MM-DD` CLI 명령
+- [x] `claude-dash clean --days N` (기본 30일)
+- [x] logRetentionDays 기반 자동 정리 (서버 시작 시)
 
-### 3-2. 검색 & 필터
-- [ ] 프로젝트명/도구명 필터
-- [ ] 프롬프트/파일명 텍스트 검색
+### 3-2. 검색 & 필터 ✅
+- [x] 이벤트 타입 필터 (프롬프트/응답/도구/세션) — Phase 2에서 완료
+- [x] 프로젝트별 필터 드롭다운 — Phase 2에서 완료
+- [x] 텍스트 검색 (프롬프트/응답/도구명/파일경로/명령어, 디바운스 200ms)
 
-### 3-3. UX 고도화
-- [ ] 키보드 단축키 (j/k 이동, Enter 상세, Esc 닫기)
-- [ ] 반응형 레이아웃
-- [ ] 알림 뱃지 (permission_prompt 대기 세션 수)
-- [ ] 데스크톱 알림 (Notification API — 세션 idle 임계치 초과 시)
+### 3-3. UX 고도화 ✅
+- [x] 키보드 단축키 (j/k 세션 이동, / 검색 포커스, Esc 닫기)
+- [x] 알림 뱃지 — 탭 타이틀에 대기 세션 수 표시 `(N) Claude Dashboard`
+- [x] 데스크톱 알림 (Notification API — 세션이 active→waiting 전환 시, 백그라운드일 때만)
+- [x] 반응형 레이아웃 (1024px 이하: 패널 오버레이, 768px 이하: 스택 레이아웃, 480px 이하: 모바일)
 
-### 3-4. 세션 관리 (생성/종료)
-- [ ] 세션 종료: 프로세스 탐색(session_id 기반) → SIGTERM 전송
-- [ ] 새 세션 열기: 새 터미널 창에서 `cd {path} && claude` 실행 (osascript)
-- [ ] 대시보드 UI: 세션 카드에 종료 버튼, 헤더에 새 세션 버튼
+### 3-4. 세션 관리 (생성/종료) ✅
+- [x] 세션 종료: POST /api/sessions/:id/kill — ps+grep로 프로세스 탐색 → SIGTERM, 못 찾으면 ended 처리
+- [x] 새 세션 열기: POST /api/sessions/launch — osascript(macOS) / x-terminal-emulator(Linux)
+- [x] 대시보드 UI: 상세 패널에 ⏹ 종료 버튼 (활성 세션만), 헤더에 "+ 새 세션" 버튼
 
-### 3-5. npm 배포
-- [ ] `bin` 필드 복원 + 빌드 파이프라인 구성
-- [ ] `npx claude-dash` 실행 지원
-- [ ] npm publish
+### 3-5. npm 배포 ✅
+- [x] `bin` 필드 설정 (`dist/bin/claude-dash.js`)
+- [x] `files` 필드 (`dist/`, `public/`, `hooks/`)
+- [x] 빌드 파이프라인 (tsc + postbuild shebang/chmod)
+- [x] dev/dist 경로 호환 (hooks, public 양방향 resolve)
+- [x] `npm pack` → 글로벌 설치 테스트 통과
+- [x] `claude-dash` 글로벌 명령어 동작 확인 (init, start, stop, status, clean)
+- [x] npm publish (v0.1.0 배포 완료)

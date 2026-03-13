@@ -49,6 +49,31 @@ function saveSession(session: Session) {
   eventBus.broadcast(session);
 }
 
+export function deleteSession(sessionId: string): boolean {
+  const filePath = sessionPath(sessionId);
+  if (!fs.existsSync(filePath)) return false;
+  fs.unlinkSync(filePath);
+  return true;
+}
+
+export function cleanEndedSessions(maxAgeMs = 24 * 60 * 60 * 1000): { deleted: number } {
+  const sessions = getAllSessions();
+  const now = Date.now();
+  let deleted = 0;
+
+  for (const session of sessions) {
+    if (session.status !== 'ended' && session.status !== 'disconnected') continue;
+    const endedAt = session.endedAt || session.lastActivityAt;
+    const age = now - new Date(endedAt).getTime();
+    if (age > maxAgeMs) {
+      deleteSession(session.sessionId);
+      deleted++;
+    }
+  }
+
+  return { deleted };
+}
+
 export function handleEvent(input: HookInput): Session {
   const now = new Date().toISOString();
   let session = getSession(input.session_id);

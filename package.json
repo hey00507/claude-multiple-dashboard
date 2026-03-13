@@ -3,29 +3,46 @@
   "version": "0.1.0",
   "description": "Monitor multiple Claude Code sessions in parallel — real-time dashboard with idle time tracking",
   "type": "module",
+  "bin": {
+    "claude-dash": "dist/bin/claude-dash.js"
+  },
+  "files": [
+    "dist/",
+    "public/",
+    "hooks/"
+  ],
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "postbuild": "node -e \"const fs=require('fs'); const p='dist/bin/claude-dash.js'; const c=fs.readFileSync(p,'utf8'); if(!c.startsWith('#!')) fs.writeFileSync(p,'#!/usr/bin/env node\\n'+c); fs.chmodSync(p,'755');\"",
+    "start": "node dist/src/server.js",
     "dash": "tsx bin/claude-dash.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm test"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/hey00507/claude-multiple-dashboard.git"
   },
   "keywords": [
+    "claude",
     "claude-code",
     "dashboard",
-    "monitoring"
+    "monitoring",
+    "multi-session",
+    "hooks",
+    "cli"
   ],
-  "author": "",
+  "author": "hey00507",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/hey00507/claude-multiple-dashboard/issues"
   },
   "homepage": "https://github.com/hey00507/claude-multiple-dashboard#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@fastify/static": "^9.0.0",
     "commander": "^14.0.3",

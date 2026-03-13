@@ -11,20 +11,57 @@
     <header class="header">
       <h1>Claude Dashboard</h1>
       <div class="header-actions">
-        <select id="date-filter">
-          <option value="today">오늘</option>
-        </select>
+        <span id="session-count" class="session-count"></span>
+        <button id="btn-new-session" class="btn-action">+ 새 세션</button>
       </div>
     </header>
-    <main>
-      <section id="sessions" class="sessions-grid">
-        <p class="empty-state">세션 데이터를 불러오는 중...</p>
-      </section>
-      <section id="history" class="history-section">
-        <h2>오늘의 활동</h2>
-        <div id="history-list"></div>
-      </section>
-    </main>
+    <div class="main-layout">
+      <main>
+        <section id="sessions" class="sessions-grid">
+          <p class="empty-state">세션 데이터를 불러오는 중...</p>
+        </section>
+        <section id="history" class="history-section">
+          <div class="history-header">
+            <h2 id="history-title">오늘의 활동</h2>
+            <select id="date-filter-history" class="date-select"></select>
+          </div>
+          <div class="history-filters">
+            <div class="filter-group" id="event-filters">
+              <button class="filter-chip active" data-filter="all">전체</button>
+              <button class="filter-chip" data-filter="prompt">💬 프롬프트</button>
+              <button class="filter-chip" data-filter="response">🤖 응답</button>
+              <button class="filter-chip" data-filter="tool">🔧 도구</button>
+              <button class="filter-chip" data-filter="session">세션</button>
+            </div>
+            <div class="filter-right">
+              <input type="text" id="search-input" class="search-input" placeholder="검색..." />
+              <select id="project-filter" class="date-select">
+                <option value="all">모든 프로젝트</option>
+              </select>
+            </div>
+          </div>
+          <div id="history-list"></div>
+          <div id="history-footer" class="history-footer" hidden>
+            <button id="load-more" class="btn-load-more">더 보기</button>
+          </div>
+        </section>
+      </main>
+      <aside id="detail-panel" class="detail-panel" hidden>
+        <div class="detail-header">
+          <h2 id="detail-title"></h2>
+          <div class="detail-actions">
+            <button id="detail-kill" class="btn-kill" title="세션 종료">⏹</button>
+            <button id="detail-delete" class="btn-delete" title="세션 삭제">🗑</button>
+            <button id="detail-close" class="btn-close">&times;</button>
+          </div>
+        </div>
+        <div class="detail-meta" id="detail-meta"></div>
+        <div class="detail-timeline-header">
+          <h3>타임라인</h3>
+        </div>
+        <div class="detail-timeline" id="detail-timeline"></div>
+      </aside>
+    </div>
   </div>
   <div id="modal-overlay" class="modal-overlay">
     <div class="modal">
