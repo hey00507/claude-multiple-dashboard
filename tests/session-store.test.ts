@@ -50,7 +50,7 @@ describe('session-store', () => {
     it('sets status to active and records prompt', () => {
       handleEvent(makeInput('SessionStart'));
       handleEvent(makeInput('Stop'));
-      const session = handleEvent(makeInput('UserPromptSubmit', { message: '테스트해줘' }));
+      const session = handleEvent(makeInput('UserPromptSubmit', { prompt: '테스트해줘' }));
 
       expect(session.status).toBe('active');
       expect(session.idleSince).toBeNull();

@@ -52,7 +52,7 @@ describe('log-store', () => {
     });
 
     it('records prompt from UserPromptSubmit', () => {
-      appendLog(makeInput('UserPromptSubmit', { message: '리팩터링해줘' }));
+      appendLog(makeInput('UserPromptSubmit', { prompt: '리팩터링해줘' }));
 
       const logs = getLogs();
       expect(logs[0].prompt).toBe('리팩터링해줘');

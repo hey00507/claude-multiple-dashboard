@@ -14,6 +14,7 @@ export interface Session {
   lastActivityAt: string;
   lastEvent: string;
   lastPrompt: string | null;
+  lastResponse: string | null;
   lastToolUsed: string | null;
   idleSince: string | null;
   endedAt: string | null;
@@ -31,8 +32,10 @@ export interface HookInput {
   tool_input?: Record<string, unknown>;
   notification_type?: string;
   stop_hook_active?: boolean;
-  message?: string;
-  content?: string;
+  prompt?: string;
+  last_assistant_message?: string;
+  transcript_path?: string;
+  permission_mode?: string;
 }
 
 export interface LogEvent {
@@ -45,5 +48,6 @@ export interface LogEvent {
   tool?: string;
   input?: Record<string, unknown>;
   prompt?: string;
+  response?: string;
   notificationType?: string;
 }

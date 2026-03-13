@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { eventBus } from '../services/event-bus.js';
-import type { Session } from '../types.js';
+import type { Session, LogEvent } from '../types.js';
 
 export async function streamRoute(app: FastifyInstance) {
   app.get('/api/events/stream', async (request, reply) => {
@@ -10,11 +10,16 @@ export async function streamRoute(app: FastifyInstance) {
       Connection: 'keep-alive',
     });
 
-    const onUpdate = (session: Session) => {
+    const onSessionUpdate = (session: Session) => {
       reply.raw.write(`event: session_update\ndata: ${JSON.stringify(session)}\n\n`);
     };
 
-    eventBus.on('session_update', onUpdate);
+    const onLogUpdate = (log: LogEvent) => {
+      reply.raw.write(`event: log_update\ndata: ${JSON.stringify(log)}\n\n`);
+    };
+
+    eventBus.on('session_update', onSessionUpdate);
+    eventBus.on('log_update', onLogUpdate);
 
     // Send heartbeat every 30s to keep connection alive
     const heartbeat = setInterval(() => {
@@ -22,7 +27,8 @@ export async function streamRoute(app: FastifyInstance) {
     }, 30_000);
 
     request.raw.on('close', () => {
-      eventBus.off('session_update', onUpdate);
+      eventBus.off('session_update', onSessionUpdate);
+      eventBus.off('log_update', onLogUpdate);
       clearInterval(heartbeat);
     });
   });

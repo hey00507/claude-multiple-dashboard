@@ -54,6 +54,7 @@ export function handleEvent(input: HookInput): Session {
       lastActivityAt: now,
       lastEvent: input.hook_event_name,
       lastPrompt: null,
+      lastResponse: null,
       lastToolUsed: null,
       idleSince: null,
       endedAt: null,
@@ -77,7 +78,7 @@ export function handleEvent(input: HookInput): Session {
     case 'UserPromptSubmit':
       session.status = 'active';
       session.idleSince = null;
-      session.lastPrompt = input.message || input.content || null;
+      session.lastPrompt = input.prompt || null;
       break;
 
     case 'PostToolUse':
@@ -89,6 +90,7 @@ export function handleEvent(input: HookInput): Session {
     case 'Stop':
       session.status = 'waiting_input';
       session.idleSince = now;
+      session.lastResponse = input.last_assistant_message || null;
       break;
 
     case 'Notification':

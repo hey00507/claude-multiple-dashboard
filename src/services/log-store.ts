@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import type { HookInput, LogEvent } from '../types.js';
 import { LOGS_DIR } from '../config.js';
+import { eventBus } from './event-bus.js';
 
 function todayDir(): string {
   const date = new Date().toISOString().split('T')[0];
@@ -23,11 +24,13 @@ export function appendLog(input: HookInput) {
   if (input.reason) logEvent.reason = input.reason;
   if (input.tool_name) logEvent.tool = input.tool_name;
   if (input.tool_input) logEvent.input = input.tool_input;
-  if (input.message || input.content) logEvent.prompt = input.message || input.content;
+  if (input.prompt) logEvent.prompt = input.prompt;
+  if (input.last_assistant_message) logEvent.response = input.last_assistant_message;
   if (input.notification_type) logEvent.notificationType = input.notification_type;
 
   const filePath = path.join(dir, `${input.session_id}.jsonl`);
   fs.appendFileSync(filePath, JSON.stringify(logEvent) + '\n');
+  eventBus.broadcastLog(logEvent);
 }
 
 export function getLogs(date?: string, sessionId?: string, limit = 100, offset = 0): LogEvent[] {

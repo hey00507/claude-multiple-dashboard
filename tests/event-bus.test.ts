@@ -16,6 +16,7 @@ describe('event-bus', () => {
       lastActivityAt: new Date().toISOString(),
       lastEvent: 'SessionStart',
       lastPrompt: null,
+      lastResponse: null,
       lastToolUsed: null,
       idleSince: null,
       endedAt: null,

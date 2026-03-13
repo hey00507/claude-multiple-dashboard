@@ -10,6 +10,8 @@ const STATUS_ICONS = {
 };
 
 let sessions = [];
+let historyLogs = [];
+const MAX_HISTORY = 50;
 
 // --- Fetch & Render ---
 
@@ -21,8 +23,8 @@ async function fetchSessions() {
 
 async function fetchHistory() {
   const res = await fetch('/api/logs?limit=50');
-  const logs = await res.json();
-  renderHistory(logs);
+  historyLogs = await res.json();
+  renderHistory();
 }
 
 function renderSessions() {
@@ -38,10 +40,18 @@ function renderSessions() {
       : '';
 
     let activity = '';
+    let viewBtn = '';
     if (s.status === 'active' && s.lastToolUsed) {
       activity = `Tool: ${s.lastToolUsed}`;
     } else if (s.status === 'waiting_input') {
-      activity = s.lastPrompt ? `💬 "${truncate(s.lastPrompt, 50)}"` : '응답 완료 — 입력 대기 중';
+      if (s.lastResponse) {
+        activity = `🤖 "${truncate(s.lastResponse, 80)}"`;
+        if (s.lastResponse.length > 80) {
+          viewBtn = `<button class="btn-view" data-modal-title="🤖 Response" data-modal-text="${htmlEscape(s.lastResponse)}">view</button>`;
+        }
+      } else {
+        activity = s.lastPrompt ? `💬 "${truncate(s.lastPrompt, 50)}"` : '응답 완료 — 입력 대기 중';
+      }
     } else if (s.status === 'waiting_permission') {
       activity = '🔒 권한 승인 대기';
     } else if (s.status === 'ended') {
@@ -57,30 +67,33 @@ function renderSessions() {
           ${idleHtml}
         </div>
         <div class="cwd">${s.cwd.replace(/^\/Users\/[^/]+/, '~')}</div>
-        <div class="last-activity">${activity}</div>
+        <div class="last-activity">${activity}${viewBtn}</div>
       </div>
     `;
   }).join('');
 }
 
-function renderHistory(logs) {
-  if (logs.length === 0) {
+function renderHistory() {
+  if (historyLogs.length === 0) {
     historyEl.innerHTML = '<p class="empty-state">오늘 기록이 없습니다</p>';
     return;
   }
 
-  historyEl.innerHTML = logs.map(log => {
+  historyEl.innerHTML = historyLogs.map(log => {
     const time = new Date(log.ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
     const project = log.sessionId.slice(0, 8);
     let detail = log.event;
+    let fullText = null;
     if (log.tool) detail = `${log.tool} ${log.input?.file_path || log.input?.command || ''}`;
-    if (log.prompt) detail = `💬 "${truncate(log.prompt, 40)}"`;
+    if (log.prompt) { detail = `💬 "${truncate(log.prompt, 40)}"`; if (log.prompt.length > 40) fullText = log.prompt; }
+    if (log.response) { detail = `🤖 "${truncate(log.response, 40)}"`; if (log.response.length > 40) fullText = log.response; }
+    const viewBtn = fullText ? `<button class="btn-view" data-modal-title="${log.response ? '🤖 Response' : '💬 Prompt'}" data-modal-text="${htmlEscape(fullText)}">view</button>` : '';
 
     return `
       <div class="history-item">
         <span class="time">${time}</span>
         <span class="project">${project}</span>
-        <span>${detail}</span>
+        <span>${detail}${viewBtn}</span>
       </div>
     `;
   }).join('');
@@ -103,6 +116,13 @@ function connectSSE() {
     renderSessions();
   });
 
+  source.addEventListener('log_update', (e) => {
+    const log = JSON.parse(e.data);
+    historyLogs.unshift(log);
+    if (historyLogs.length > MAX_HISTORY) historyLogs.pop();
+    renderHistory();
+  });
+
   source.onerror = () => {
     source.close();
     setTimeout(connectSSE, 3000);
@@ -118,6 +138,33 @@ setInterval(() => {
   });
 }, 1000);
 
+// --- Modal ---
+
+window.showModal = function(title, text) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').textContent = text;
+  document.getElementById('modal-overlay').classList.add('active');
+};
+
+window.closeModal = function() {
+  document.getElementById('modal-overlay').classList.remove('active');
+};
+
+document.getElementById('modal-overlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
+
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-view');
+  if (!btn) return;
+  e.stopPropagation();
+  showModal(btn.dataset.modalTitle, btn.dataset.modalText);
+});
+
 // --- Utils ---
 
 function formatDuration(ms) {
@@ -130,6 +177,10 @@ function formatDuration(ms) {
     return `${hrs}:${String(remainMins).padStart(2, '0')}:${String(remainSecs).padStart(2, '0')}`;
   }
   return `${mins}:${String(remainSecs).padStart(2, '0')}`;
+}
+
+function htmlEscape(str) {
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function truncate(str, len) {
