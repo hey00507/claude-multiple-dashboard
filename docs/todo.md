@@ -65,7 +65,12 @@
 - [ ] 알림 뱃지 (permission_prompt 대기 세션 수)
 - [ ] 데스크톱 알림 (Notification API — 세션 idle 임계치 초과 시)
 
-### 3-4. npm 배포
+### 3-4. 세션 관리 (생성/종료)
+- [ ] 세션 종료: 프로세스 탐색(session_id 기반) → SIGTERM 전송
+- [ ] 새 세션 열기: 새 터미널 창에서 `cd {path} && claude` 실행 (osascript)
+- [ ] 대시보드 UI: 세션 카드에 종료 버튼, 헤더에 새 세션 버튼
+
+### 3-5. npm 배포
 - [ ] `bin` 필드 복원 + 빌드 파이프라인 구성
 - [ ] `npx claude-dash` 실행 지원
 - [ ] npm publish

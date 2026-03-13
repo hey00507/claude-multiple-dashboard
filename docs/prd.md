@@ -322,7 +322,32 @@ claude-multiple-dashboard/
 - 알림 뱃지 (permission_prompt 대기 세션 수를 탭 타이틀에 표시)
 - 데스크톱 알림 (Notification API — 세션이 일정 시간 이상 idle 시)
 
-**3-4. npm 배포**
+**3-4. 세션 관리 (생성/종료)**
+
+대시보드에서 세션을 모니터링하는 것을 넘어, 직접 생성/종료할 수 있는 기능.
+
+*세션 종료:*
+- `POST /api/sessions/:id/kill` — 프로세스 탐색 후 SIGTERM 전송
+- `transcript_path` 또는 `session_id`로 `ps aux | grep {session_id}` → PID 획득 → kill
+- 대시보드 세션 카드에 ✕ 종료 버튼 추가
+
+*새 세션 열기:*
+- `POST /api/sessions/launch` — 새 터미널 창에서 Claude Code 실행
+- macOS: `osascript`로 Terminal.app 또는 iTerm2에 `cd {path} && claude` 전달
+- 대시보드 헤더에 "+ 새 세션" 버튼, 프로젝트 경로 입력
+
+*알려진 이슈 & 제약:*
+
+| 이슈 | 설명 | 대응 방안 |
+|------|------|-----------|
+| 프로세스 식별 | `session_id`로 PID를 찾으려면 `ps aux` 출력에서 매칭해야 함. Claude Code가 session_id를 프로세스 인자로 노출하지 않을 수 있음 | `transcript_path` 경로로 `lsof`/`fuser`를 통해 해당 파일을 열고 있는 프로세스를 역추적 |
+| 비정상 종료 | SIGTERM으로 종료 시 Claude Code의 정상 종료 흐름(세션 저장 등)을 타지 않을 수 있음 | SIGTERM 먼저 시도 → 5초 대기 → 응답 없으면 사용자에게 강제 종료(SIGKILL) 확인 |
+| 터미널 종속 | 새 세션은 터미널 앱에 의존. iTerm2/Terminal.app/Warp 등 사용자 환경에 따라 osascript가 다름 | 설정에서 터미널 앱 선택 가능하게 하거나, `TERM_PROGRAM` 환경변수로 자동 감지 |
+| macOS 전용 | osascript는 macOS 전용. Linux에서는 다른 방식 필요 | macOS: osascript, Linux: `gnome-terminal`/`xterm` 등 분기 처리. 플랫폼 감지 |
+| 권한 이슈 | 대시보드 서버가 다른 사용자의 프로세스를 kill할 수 없음 | 같은 사용자(로컬) 환경 전제. 원격 접근 시 인증 필요 (현재 스코프 외) |
+| SessionEnd 미발생 | SIGTERM으로 종료 시 Claude Code가 SessionEnd hook을 발생시키지 않을 수 있음 | 프로세스 스캐너(30s)가 disconnected로 전환하여 보완 |
+
+**3-5. npm 배포**
 - `bin` 필드 + 빌드 파이프라인 구성
 - `npx claude-dash` 글로벌 실행 지원
 - npm publish
@@ -357,6 +382,8 @@ claude-multiple-dashboard/
 | 디스크 사용량 | JSONL 로그 무한 증가 | logRetentionDays 자동 정리 (Phase 3) |
 | 서버 미실행 | hook이 POST 실패 → 이벤트 유실 | 의도된 동작. 1s timeout으로 Claude에 영향 없음 |
 | CRLF 이슈 | Windows에서 hook 스크립트 생성 시 | init 시 LF 강제 적용 필요 (경험적 이슈) |
+| 세션 종료 | SIGTERM 시 정상 종료 흐름 미보장 | 단계적 종료(SIGTERM → 대기 → 확인) + 프로세스 스캐너 보완 |
+| 세션 생성 | 터미널 앱/OS 종속적 | 플랫폼별 분기 처리, 설정으로 터미널 앱 선택 가능 |
 
 ---
 
