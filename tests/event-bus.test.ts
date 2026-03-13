@@ -11,6 +11,7 @@ describe('event-bus', () => {
       sessionId: 'bus-test-001',
       cwd: '/tmp/test',
       projectName: 'test',
+      customName: false,
       status: 'active',
       startedAt: new Date().toISOString(),
       lastActivityAt: new Date().toISOString(),

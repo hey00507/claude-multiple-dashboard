@@ -112,8 +112,9 @@ main {
 
 .history-item {
   display: grid;
-  grid-template-columns: 60px 140px 1fr;
-  gap: 8px;
+  grid-template-columns: 80px 200px 1fr;
+  gap: 12px;
+  align-items: baseline;
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
   font-size: 13px;
@@ -122,10 +123,20 @@ main {
 
 .history-item .time {
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .history-item .project {
   color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item .detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .empty-state {
@@ -147,6 +158,25 @@ main {
 .status-dot.waiting_permission { background: var(--orange); }
 .status-dot.ended { background: var(--gray); }
 .status-dot.disconnected { background: var(--red); }
+
+/* Rename button */
+.btn-rename {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.session-card:hover .btn-rename {
+  opacity: 0.6;
+}
+
+.btn-rename:hover {
+  opacity: 1 !important;
+}
 
 /* View button */
 .btn-view {

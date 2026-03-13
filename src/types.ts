@@ -9,6 +9,7 @@ export interface Session {
   sessionId: string;
   cwd: string;
   projectName: string;
+  customName: boolean;
   status: SessionStatus;
   startedAt: string;
   lastActivityAt: string;

@@ -34,6 +34,15 @@ export function getSessionsByStatus(statuses: SessionStatus[]): Session[] {
   return getAllSessions().filter(s => statuses.includes(s.status));
 }
 
+export function renameSession(sessionId: string, newName: string): Session | null {
+  const session = getSession(sessionId);
+  if (!session) return null;
+  session.projectName = newName;
+  session.customName = true;
+  saveSession(session);
+  return session;
+}
+
 function saveSession(session: Session) {
   ensureDirs();
   fs.writeFileSync(sessionPath(session.sessionId), JSON.stringify(session, null, 2));
@@ -49,6 +58,7 @@ export function handleEvent(input: HookInput): Session {
       sessionId: input.session_id,
       cwd: input.cwd,
       projectName: extractProjectName(input.cwd),
+      customName: false,
       status: 'active',
       startedAt: now,
       lastActivityAt: now,
@@ -72,7 +82,7 @@ export function handleEvent(input: HookInput): Session {
       session.status = 'active';
       session.idleSince = null;
       session.cwd = input.cwd;
-      session.projectName = extractProjectName(input.cwd);
+      if (!session.customName) session.projectName = extractProjectName(input.cwd);
       break;
 
     case 'UserPromptSubmit':

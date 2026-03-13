@@ -27,6 +27,16 @@ async function fetchHistory() {
   renderHistory();
 }
 
+function getProjectName(sessionId) {
+  const s = sessions.find(s => s.sessionId === sessionId);
+  return s ? s.projectName : sessionId.slice(0, 8);
+}
+
+function getSessionStatus(sessionId) {
+  const s = sessions.find(s => s.sessionId === sessionId);
+  return s ? s.status : 'ended';
+}
+
 function renderSessions() {
   if (sessions.length === 0) {
     sessionsEl.innerHTML = '<p class="empty-state">활성 세션이 없습니다</p>';
@@ -63,7 +73,11 @@ function renderSessions() {
     return `
       <div class="session-card" data-session-id="${s.sessionId}">
         <div class="top-row">
-          <span class="project-name"><span class="status-dot ${s.status}"></span>${icon} ${s.projectName}</span>
+          <span class="project-name">
+            <span class="status-dot ${s.status}"></span>${icon}
+            <span class="project-name-text" data-session-id="${s.sessionId}">${htmlEscape(s.projectName)}</span>
+            <button class="btn-rename" data-session-id="${s.sessionId}" title="이름 변경">✏️</button>
+          </span>
           ${idleHtml}
         </div>
         <div class="cwd">${s.cwd.replace(/^\/Users\/[^/]+/, '~')}</div>
@@ -80,8 +94,10 @@ function renderHistory() {
   }
 
   historyEl.innerHTML = historyLogs.map(log => {
-    const time = new Date(log.ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-    const project = log.sessionId.slice(0, 8);
+    const time = new Date(log.ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const projectName = getProjectName(log.sessionId);
+    const status = getSessionStatus(log.sessionId);
+    const icon = STATUS_ICONS[status] || '❓';
     let detail = log.event;
     let fullText = null;
     if (log.tool) detail = `${log.tool} ${log.input?.file_path || log.input?.command || ''}`;
@@ -92,11 +108,34 @@ function renderHistory() {
     return `
       <div class="history-item">
         <span class="time">${time}</span>
-        <span class="project">${project}</span>
-        <span>${detail}${viewBtn}</span>
+        <span class="project">${icon} ${htmlEscape(projectName)}</span>
+        <span class="detail">${detail}${viewBtn}</span>
       </div>
     `;
   }).join('');
+}
+
+// --- Rename ---
+
+async function renameSession(sessionId) {
+  const session = sessions.find(s => s.sessionId === sessionId);
+  if (!session) return;
+  const newName = prompt('세션 이름 변경', session.projectName);
+  if (!newName || newName.trim() === session.projectName) return;
+
+  const res = await fetch(`/api/sessions/${sessionId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ projectName: newName.trim() }),
+  });
+
+  if (res.ok) {
+    const updated = await res.json();
+    const idx = sessions.findIndex(s => s.sessionId === sessionId);
+    if (idx >= 0) sessions[idx] = updated;
+    renderSessions();
+    renderHistory();
+  }
 }
 
 // --- SSE ---
@@ -159,10 +198,19 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.btn-view');
-  if (!btn) return;
-  e.stopPropagation();
-  showModal(btn.dataset.modalTitle, btn.dataset.modalText);
+  const viewBtn = e.target.closest('.btn-view');
+  if (viewBtn) {
+    e.stopPropagation();
+    showModal(viewBtn.dataset.modalTitle, viewBtn.dataset.modalText);
+    return;
+  }
+
+  const renameBtn = e.target.closest('.btn-rename');
+  if (renameBtn) {
+    e.stopPropagation();
+    renameSession(renameBtn.dataset.sessionId);
+    return;
+  }
 });
 
 // --- Utils ---
