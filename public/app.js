@@ -399,6 +399,60 @@ function renderHistory() {
   }).join('');
 }
 
+// --- Stats ---
+
+const statsSection = document.getElementById('stats-section');
+const statsGrid = document.getElementById('stats-grid');
+const statsTools = document.getElementById('stats-tools');
+
+async function fetchStats() {
+  try {
+    const res = await fetch(`/api/stats?date=${historyDate}`);
+    if (!res.ok) { statsSection.hidden = true; return; }
+    const stats = await res.json();
+    renderStats(stats);
+    statsSection.hidden = false;
+  } catch {
+    statsSection.hidden = true;
+  }
+}
+
+function formatIdleTime(ms) {
+  if (ms === 0) return '-';
+  const secs = Math.floor(ms / 1000);
+  const mins = Math.floor(secs / 60);
+  if (mins >= 60) return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  if (mins > 0) return `${mins}m ${secs % 60}s`;
+  return `${secs}s`;
+}
+
+function renderStats(stats) {
+  statsGrid.innerHTML = `
+    <div class="stat-card"><div class="stat-value">${stats.totalEvents}</div><div class="stat-label">총 이벤트</div></div>
+    <div class="stat-card"><div class="stat-value">${stats.prompts}</div><div class="stat-label">프롬프트</div></div>
+    <div class="stat-card"><div class="stat-value">${stats.responses}</div><div class="stat-label">응답</div></div>
+    <div class="stat-card"><div class="stat-value">${stats.sessions}</div><div class="stat-label">세션</div></div>
+    <div class="stat-card"><div class="stat-value">${formatIdleTime(stats.avgIdleGapMs)}</div><div class="stat-label">평균 대기</div></div>
+  `;
+
+  const toolEntries = Object.entries(stats.tools).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  if (toolEntries.length === 0) {
+    statsTools.innerHTML = '';
+    return;
+  }
+  const maxCount = toolEntries[0][1];
+  statsTools.innerHTML = `
+    <div class="stats-tools-title">도구 사용 Top ${toolEntries.length}</div>
+    ${toolEntries.map(([name, count]) => `
+      <div class="tool-bar-row">
+        <span class="tool-bar-name">${htmlEscape(name)}</span>
+        <div class="tool-bar-track"><div class="tool-bar-fill" style="width:${(count / maxCount * 100).toFixed(1)}%"></div></div>
+        <span class="tool-bar-count">${count}</span>
+      </div>
+    `).join('')}
+  `;
+}
+
 // --- Detail Panel ---
 
 async function openDetail(sessionId) {
@@ -768,6 +822,7 @@ document.addEventListener('keydown', (e) => {
 dateSelect.addEventListener('change', () => {
   historyDate = dateSelect.value;
   fetchHistory();
+  fetchStats();
 });
 
 // Event type filter chips
@@ -913,5 +968,6 @@ applyTheme();
 initDateSelector();
 fetchSessions();
 fetchHistory();
+fetchStats();
 connectSSE();
 requestNotificationPermission();

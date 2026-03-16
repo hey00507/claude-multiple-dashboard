@@ -207,3 +207,42 @@ describe('GET /api/logs', () => {
     expect(logs[0].sessionId).toBe('log-001');
   });
 });
+
+describe('GET /api/stats', () => {
+  it('returns stats for today', async () => {
+    await app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { session_id: 'stats-001', cwd: '/tmp/s', hook_event_name: 'SessionStart' },
+    });
+    await app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { session_id: 'stats-001', cwd: '/tmp/s', hook_event_name: 'UserPromptSubmit', prompt: 'hello' },
+    });
+    await app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { session_id: 'stats-001', cwd: '/tmp/s', hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: 'ls' } },
+    });
+    await app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { session_id: 'stats-001', cwd: '/tmp/s', hook_event_name: 'Stop', last_assistant_message: 'done' },
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/stats' });
+    const stats = JSON.parse(res.body);
+
+    expect(res.statusCode).toBe(200);
+    expect(stats.totalEvents).toBe(4);
+    expect(stats.prompts).toBe(1);
+    expect(stats.responses).toBe(1);
+    expect(stats.sessions).toBe(1);
+    expect(stats.tools).toEqual({ Bash: 1 });
+  });
+
+  it('returns empty stats for date with no logs', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/stats?date=2020-01-01' });
+    const stats = JSON.parse(res.body);
+
+    expect(stats.totalEvents).toBe(0);
+    expect(stats.prompts).toBe(0);
+  });
+});

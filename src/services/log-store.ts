@@ -58,6 +58,60 @@ export function getLogs(date?: string, sessionId?: string, limit = 100, offset =
   return allEvents.slice(offset, offset + limit);
 }
 
+export interface DayStats {
+  totalEvents: number;
+  prompts: number;
+  responses: number;
+  tools: Record<string, number>;
+  sessions: number;
+  avgIdleGapMs: number;
+}
+
+export function getStats(date?: string): DayStats {
+  const logs = getLogs(date, undefined, 10000, 0);
+  const tools: Record<string, number> = {};
+  let prompts = 0;
+  let responses = 0;
+  const sessionIds = new Set<string>();
+  const stopTimes: number[] = [];
+  const resumeTimes: number[] = [];
+
+  for (const log of logs) {
+    sessionIds.add(log.sessionId);
+    if (log.prompt) prompts++;
+    if (log.response) responses++;
+    if (log.tool) tools[log.tool] = (tools[log.tool] || 0) + 1;
+    if (log.event === 'Stop') stopTimes.push(new Date(log.ts).getTime());
+    if (log.event === 'UserPromptSubmit') resumeTimes.push(new Date(log.ts).getTime());
+  }
+
+  // Calculate average idle gap: time between Stop and next UserPromptSubmit
+  // Sort chronologically (logs are desc, so reverse)
+  const chronLogs = [...logs].reverse();
+  let totalIdleMs = 0;
+  let idleCount = 0;
+  let lastStopTime: number | null = null;
+
+  for (const log of chronLogs) {
+    if (log.event === 'Stop') {
+      lastStopTime = new Date(log.ts).getTime();
+    } else if (log.event === 'UserPromptSubmit' && lastStopTime !== null) {
+      totalIdleMs += new Date(log.ts).getTime() - lastStopTime;
+      idleCount++;
+      lastStopTime = null;
+    }
+  }
+
+  return {
+    totalEvents: logs.length,
+    prompts,
+    responses,
+    tools,
+    sessions: sessionIds.size,
+    avgIdleGapMs: idleCount > 0 ? Math.round(totalIdleMs / idleCount) : 0,
+  };
+}
+
 export function deleteLogsBySessionId(sessionId: string): number {
   if (!fs.existsSync(LOGS_DIR)) return 0;
 

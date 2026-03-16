@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { getLogs, deleteLogs } from '../services/log-store.js';
+import { getLogs, deleteLogs, getStats } from '../services/log-store.js';
 
 export async function logsRoute(app: FastifyInstance) {
   app.get<{
@@ -7,6 +7,10 @@ export async function logsRoute(app: FastifyInstance) {
   }>('/api/logs', async (request) => {
     const { date, sessionId, limit, offset } = request.query;
     return getLogs(date, sessionId, Number(limit) || 100, Number(offset) || 0);
+  });
+
+  app.get<{ Querystring: { date?: string } }>('/api/stats', async (request) => {
+    return getStats(request.query.date);
   });
 
   app.delete<{ Querystring: { before: string } }>('/api/logs', async (request, reply) => {
