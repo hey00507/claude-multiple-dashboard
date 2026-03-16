@@ -112,5 +112,5 @@
 - [x] version bump → 0.3.0
 - [x] CHANGELOG 작성
 - [x] 키보드 단축키 도움말 패널 (`?` 키 / 버튼)
-- [ ] npm publish (v0.3.0)
-- [ ] GitHub release + tag
+- [x] npm publish (v0.3.0)
+- [x] GitHub release + tag
