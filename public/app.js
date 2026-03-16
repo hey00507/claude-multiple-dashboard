@@ -131,6 +131,17 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// --- Shortcuts Panel ---
+
+const shortcutsPanel = document.getElementById('shortcuts-panel');
+
+function toggleShortcuts() {
+  shortcutsPanel.hidden = !shortcutsPanel.hidden;
+}
+
+document.getElementById('btn-shortcuts').addEventListener('click', toggleShortcuts);
+document.getElementById('shortcuts-close').addEventListener('click', () => { shortcutsPanel.hidden = true; });
+
 // --- Keyboard ---
 
 document.addEventListener('keydown', (e) => {
@@ -138,6 +149,7 @@ document.addEventListener('keydown', (e) => {
 
   if (e.key === 'Escape') {
     if (isTyping) { searchInput.blur(); return; }
+    if (!shortcutsPanel.hidden) { shortcutsPanel.hidden = true; return; }
     if (document.getElementById('modal-overlay').classList.contains('active')) {
       closeModal();
     } else if (state.selectedSessionId) {
@@ -147,6 +159,11 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (isTyping) return;
+
+  if (e.key === '?') {
+    toggleShortcuts();
+    return;
+  }
 
   const sorted = sortSessions([...state.sessions]);
   if (!sorted.length) return;

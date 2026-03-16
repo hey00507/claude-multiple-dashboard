@@ -14,6 +14,7 @@
         <span id="session-count" class="session-count"></span>
         <button id="btn-new-session" class="btn-action">+ 새 세션</button>
         <button id="btn-theme" class="btn-theme" title="테마 전환"></button>
+        <button id="btn-shortcuts" class="btn-shortcuts" title="단축키 도움말 (?)">?</button>
       </div>
     </header>
     <div class="main-layout">
@@ -70,6 +71,30 @@
         </div>
         <div class="detail-timeline" id="detail-timeline"></div>
       </aside>
+    </div>
+  </div>
+  <div id="shortcuts-panel" class="shortcuts-panel" hidden>
+    <div class="shortcuts-header">
+      <h3>단축키</h3>
+      <button id="shortcuts-close" class="btn-close">&times;</button>
+    </div>
+    <div class="shortcuts-body">
+      <div class="shortcut-group">
+        <h4>세션 탐색</h4>
+        <div class="shortcut-row"><kbd>j</kbd><span>다음 세션</span></div>
+        <div class="shortcut-row"><kbd>k</kbd><span>이전 세션</span></div>
+        <div class="shortcut-row"><kbd>Enter</kbd><span>상세 패널 풀뷰 전환</span></div>
+        <div class="shortcut-row"><kbd>Esc</kbd><span>패널/모달 닫기</span></div>
+      </div>
+      <div class="shortcut-group">
+        <h4>검색 & 필터</h4>
+        <div class="shortcut-row"><kbd>/</kbd><span>검색창 포커스</span></div>
+        <div class="shortcut-row"><kbd>Esc</kbd><span>검색창 포커스 해제</span></div>
+      </div>
+      <div class="shortcut-group">
+        <h4>기타</h4>
+        <div class="shortcut-row"><kbd>?</kbd><span>이 도움말 토글</span></div>
+      </div>
     </div>
   </div>
   <div id="modal-overlay" class="modal-overlay">

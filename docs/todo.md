@@ -108,8 +108,9 @@
 - [x] **세션 통계 대시보드** — GET /api/stats API + 통계 카드 + 도구 사용 Top 10 바 차트
 - [x] **app.js 모듈 분리** — 973줄 → 7개 ES Module (state/utils/sessions/history/detail/sse/theme)
 
-### 4-4. 배포
-- [ ] version bump → 0.3.0
-- [ ] CHANGELOG 작성
+### 4-4. 배포 ✅
+- [x] version bump → 0.3.0
+- [x] CHANGELOG 작성
+- [x] 키보드 단축키 도움말 패널 (`?` 키 / 버튼)
 - [ ] npm publish (v0.3.0)
 - [ ] GitHub release + tag
