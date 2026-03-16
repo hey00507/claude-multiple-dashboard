@@ -190,6 +190,28 @@ function renderSessionCard(s) {
   `;
 }
 
+function groupSessionsByCwd(sessionList) {
+  const groups = new Map();
+  for (const s of sessionList) {
+    const key = s.cwd;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(s);
+  }
+  return groups;
+}
+
+function sortGroups(groups) {
+  const ACTIVE_STATUSES = ['active', 'waiting_input', 'waiting_permission'];
+  return [...groups.entries()].sort((a, b) => {
+    const aHasActive = a[1].some(s => ACTIVE_STATUSES.includes(s.status));
+    const bHasActive = b[1].some(s => ACTIVE_STATUSES.includes(s.status));
+    if (aHasActive !== bHasActive) return aHasActive ? -1 : 1;
+    const aLatest = Math.max(...a[1].map(s => new Date(s.lastActivityAt).getTime()));
+    const bLatest = Math.max(...b[1].map(s => new Date(s.lastActivityAt).getTime()));
+    return bLatest - aLatest;
+  });
+}
+
 function renderSessions() {
   const ACTIVE_STATUSES = ['active', 'waiting_input', 'waiting_permission'];
 
@@ -216,16 +238,54 @@ function renderSessions() {
 
   let html = '';
 
-  // Active sessions — always visible
+  // Active sessions — grouped by project directory
   if (activeSessions.length > 0) {
-    html += activeSessions.map(renderSessionCard).join('');
+    const activeGroups = sortGroups(groupSessionsByCwd(activeSessions));
+
+    if (activeGroups.length === 1 && activeGroups[0][1].length === activeSessions.length) {
+      // Single group — no need for grouping UI
+      html += activeSessions.map(renderSessionCard).join('');
+    } else {
+      for (const [cwd, groupSessions] of activeGroups) {
+        const cwdShort = cwd.replace(/^\/Users\/[^/]+/, '~');
+        html += `
+          <div class="session-group">
+            <div class="session-group-header">
+              <span class="group-path">${htmlEscape(cwdShort)}</span>
+              <span class="group-count">${groupSessions.length}개</span>
+            </div>
+            ${sortSessions([...groupSessions]).map(renderSessionCard).join('')}
+          </div>
+        `;
+      }
+    }
   } else {
     html += '<p class="empty-state" style="padding:16px 0">활성 세션 없음</p>';
   }
 
-  // Inactive sessions — collapsible
+  // Inactive sessions — collapsible, grouped by project
   if (inactiveSessions.length > 0) {
     const openAttr = inactiveSessionsOpen ? ' open' : '';
+    const inactiveGroups = sortGroups(groupSessionsByCwd(inactiveSessions));
+
+    let inactiveHtml = '';
+    if (inactiveGroups.length <= 1) {
+      inactiveHtml = inactiveSessions.map(renderSessionCard).join('');
+    } else {
+      for (const [cwd, groupSessions] of inactiveGroups) {
+        const cwdShort = cwd.replace(/^\/Users\/[^/]+/, '~');
+        inactiveHtml += `
+          <div class="session-group inactive">
+            <div class="session-group-header">
+              <span class="group-path">${htmlEscape(cwdShort)}</span>
+              <span class="group-count">${groupSessions.length}개</span>
+            </div>
+            ${sortSessions([...groupSessions]).map(renderSessionCard).join('')}
+          </div>
+        `;
+      }
+    }
+
     html += `
       <details class="inactive-sessions-group"${openAttr}>
         <summary class="inactive-sessions-toggle">
@@ -235,7 +295,7 @@ function renderSessions() {
           <button class="btn-bulk-delete" id="btn-bulk-delete">모두 삭제</button>
         </div>
         <div class="inactive-sessions-list">
-          ${inactiveSessions.map(renderSessionCard).join('')}
+          ${inactiveHtml}
         </div>
       </details>
     `;

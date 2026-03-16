@@ -125,6 +125,66 @@ main {
   color: var(--text-muted);
 }
 
+/* Session group by project */
+.session-group {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.session-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.group-path {
+  color: var(--text-muted);
+  font-family: monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-count {
+  color: var(--text-muted);
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+.session-group .session-card {
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.session-group .session-card:last-child {
+  border-bottom: none;
+}
+
+.session-group.inactive {
+  border: none;
+  border-radius: 0;
+}
+
+.session-group.inactive .session-group-header {
+  background: transparent;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.session-group.inactive .session-card {
+  opacity: 0.7;
+}
+
+.session-group.inactive .session-card:hover {
+  opacity: 1;
+}
+
 /* Inactive sessions collapsible group */
 .inactive-sessions-group {
   margin-top: 8px;
