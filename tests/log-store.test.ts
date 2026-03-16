@@ -6,7 +6,7 @@ import os from 'os';
 const tmpDir = path.join(os.tmpdir(), `claude-dash-log-test-${Date.now()}`);
 process.env.CLAUDE_DASH_DATA_DIR = tmpDir;
 
-const { appendLog, getLogs, deleteLogs } = await import('../src/services/log-store.js');
+const { appendLog, getLogs, deleteLogs, deleteLogsBySessionId } = await import('../src/services/log-store.js');
 
 const TEST_SESSION = 'log-test-001';
 
@@ -125,6 +125,25 @@ describe('log-store', () => {
 
       deleteLogs('2026-01-01');
       expect(fs.existsSync(recentDir)).toBe(true);
+    });
+  });
+
+  describe('deleteLogsBySessionId', () => {
+    it('deletes log files across all date directories', () => {
+      appendLog(makeInput('SessionStart'));
+      appendLog({ session_id: 'other-session', cwd: '/tmp', hook_event_name: 'SessionStart' });
+
+      const today = new Date().toISOString().split('T')[0];
+      expect(fs.existsSync(path.join(tmpDir, 'logs', today, `${TEST_SESSION}.jsonl`))).toBe(true);
+
+      const deleted = deleteLogsBySessionId(TEST_SESSION);
+      expect(deleted).toBe(1);
+      expect(fs.existsSync(path.join(tmpDir, 'logs', today, `${TEST_SESSION}.jsonl`))).toBe(false);
+      expect(fs.existsSync(path.join(tmpDir, 'logs', today, 'other-session.jsonl'))).toBe(true);
+    });
+
+    it('returns 0 for non-existent session', () => {
+      expect(deleteLogsBySessionId('nonexistent')).toBe(0);
     });
   });
 });

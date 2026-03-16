@@ -137,6 +137,61 @@ describe('GET /api/sessions/:sessionId', () => {
   });
 });
 
+describe('DELETE /api/sessions/:id (with logs)', () => {
+  it('deletes session and associated logs', async () => {
+    // Create session + generate logs
+    await app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { session_id: 'del-001', cwd: '/tmp/del', hook_event_name: 'SessionStart' },
+    });
+    await app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { session_id: 'del-001', cwd: '/tmp/del', hook_event_name: 'SessionEnd', reason: 'exit' },
+    });
+
+    const res = await app.inject({ method: 'DELETE', url: '/api/sessions/del-001' });
+    const body = JSON.parse(res.body);
+
+    expect(res.statusCode).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.logsDeleted).toBeGreaterThanOrEqual(1);
+
+    // Verify session is gone
+    const sessRes = await app.inject({ method: 'GET', url: '/api/sessions/del-001' });
+    expect(sessRes.statusCode).toBe(404);
+  });
+});
+
+describe('DELETE /api/sessions (bulk)', () => {
+  it('deletes all inactive sessions', async () => {
+    // Create active session
+    await app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { session_id: 'bulk-active', cwd: '/tmp/a', hook_event_name: 'SessionStart' },
+    });
+    // Create ended session
+    await app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { session_id: 'bulk-ended', cwd: '/tmp/b', hook_event_name: 'SessionStart' },
+    });
+    await app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { session_id: 'bulk-ended', cwd: '/tmp/b', hook_event_name: 'SessionEnd' },
+    });
+
+    const res = await app.inject({ method: 'DELETE', url: '/api/sessions' });
+    const body = JSON.parse(res.body);
+
+    expect(res.statusCode).toBe(200);
+    expect(body.deletedSessions).toBe(1);
+
+    // Active session should still exist
+    const sessions = JSON.parse((await app.inject({ method: 'GET', url: '/api/sessions' })).body);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].sessionId).toBe('bulk-active');
+  });
+});
+
 describe('GET /api/logs', () => {
   it('returns logs for today', async () => {
     await app.inject({

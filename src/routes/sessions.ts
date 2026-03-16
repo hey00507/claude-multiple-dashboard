@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { execSync, exec } from 'child_process';
 import { getAllSessions, getSession, renameSession, deleteSession, handleEvent } from '../services/session-store.js';
+import { deleteLogsBySessionId } from '../services/log-store.js';
 import type { SessionStatus } from '../types.js';
 
 export async function sessionsRoute(app: FastifyInstance) {
@@ -38,7 +39,26 @@ export async function sessionsRoute(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Cannot delete active session' });
     }
     deleteSession(request.params.sessionId);
-    return { ok: true, sessionId: request.params.sessionId };
+    const logsDeleted = deleteLogsBySessionId(request.params.sessionId);
+    return { ok: true, sessionId: request.params.sessionId, logsDeleted };
+  });
+
+  // Bulk delete all inactive (ended/disconnected) sessions with their logs
+  app.delete('/api/sessions', async () => {
+    const sessions = getAllSessions();
+    const ACTIVE_STATUSES: SessionStatus[] = ['active', 'waiting_input', 'waiting_permission'];
+    const inactive = sessions.filter(s => !ACTIVE_STATUSES.includes(s.status));
+
+    let deletedSessions = 0;
+    let deletedLogs = 0;
+
+    for (const s of inactive) {
+      deleteSession(s.sessionId);
+      deletedLogs += deleteLogsBySessionId(s.sessionId);
+      deletedSessions++;
+    }
+
+    return { ok: true, deletedSessions, deletedLogs };
   });
 
   // Kill a session's claude process

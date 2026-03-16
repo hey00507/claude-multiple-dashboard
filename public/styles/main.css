@@ -166,6 +166,30 @@ main {
   color: var(--text);
 }
 
+.inactive-sessions-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+
+.btn-bulk-delete {
+  background: none;
+  color: var(--red);
+  border: 1px solid var(--red);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.btn-bulk-delete:hover {
+  opacity: 1;
+}
+
 .inactive-sessions-list {
   display: flex;
   flex-direction: column;
@@ -189,6 +213,28 @@ main {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+}
+
+.history-header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn-export {
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-export:hover {
+  color: var(--text);
+  border-color: var(--blue);
 }
 
 .history-section h2 {

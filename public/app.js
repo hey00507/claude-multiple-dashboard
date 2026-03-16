@@ -38,6 +38,9 @@ let searchQuery = '';
 let notificationsEnabled = false;
 let inactiveSessionsOpen = false;
 
+const btnExportJson = document.getElementById('btn-export-json');
+const btnExportCsv = document.getElementById('btn-export-csv');
+
 const detailPanel = document.getElementById('detail-panel');
 const detailTitle = document.getElementById('detail-title');
 const detailMeta = document.getElementById('detail-meta');
@@ -228,6 +231,9 @@ function renderSessions() {
         <summary class="inactive-sessions-toggle">
           종료/비활성 세션 (${inactiveSessions.length}개)
         </summary>
+        <div class="inactive-sessions-actions">
+          <button class="btn-bulk-delete" id="btn-bulk-delete">모두 삭제</button>
+        </div>
         <div class="inactive-sessions-list">
           ${inactiveSessions.map(renderSessionCard).join('')}
         </div>
@@ -475,6 +481,56 @@ async function launchSession() {
   }
 }
 
+// --- Export ---
+
+function downloadFile(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportJSON() {
+  const filtered = getFilteredLogs();
+  if (filtered.length === 0) return;
+  const json = JSON.stringify(filtered, null, 2);
+  downloadFile(json, `claude-logs-${historyDate}.json`, 'application/json');
+}
+
+function exportCSV() {
+  const filtered = getFilteredLogs();
+  if (filtered.length === 0) return;
+  const headers = ['timestamp', 'event', 'project', 'detail'];
+  const rows = filtered.map(log => {
+    const project = getProjectName(log.sessionId);
+    let detail = log.event;
+    if (log.tool) detail = `${log.tool} ${log.input?.file_path || log.input?.command || ''}`;
+    if (log.prompt) detail = log.prompt;
+    if (log.response) detail = log.response;
+    return [log.ts, log.event, project, detail].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+  });
+  downloadFile([headers.join(','), ...rows].join('\n'), `claude-logs-${historyDate}.csv`, 'text/csv');
+}
+
+// --- Bulk Delete ---
+
+async function deleteAllInactiveSessions() {
+  if (!confirm('종료/비활성 세션과 관련 로그를 모두 삭제하시겠습니까?')) return;
+  const res = await fetch('/api/sessions', { method: 'DELETE' });
+  if (res.ok) {
+    const result = await res.json();
+    sessions = sessions.filter(s => s.status === 'active' || s.status === 'waiting_input' || s.status === 'waiting_permission');
+    renderSessions();
+    fetchHistory();
+  } else {
+    const err = await res.json();
+    alert(err.error || '삭제 실패');
+  }
+}
+
 // --- Rename ---
 
 async function renameSession(sessionId) {
@@ -696,7 +752,18 @@ detailKill.addEventListener('click', () => {
 // New session button
 btnNewSession.addEventListener('click', launchSession);
 
+// Export buttons
+btnExportJson.addEventListener('click', exportJSON);
+btnExportCsv.addEventListener('click', exportCSV);
+
 document.addEventListener('click', (e) => {
+  const bulkDeleteBtn = e.target.closest('.btn-bulk-delete');
+  if (bulkDeleteBtn) {
+    e.stopPropagation();
+    deleteAllInactiveSessions();
+    return;
+  }
+
   const viewBtn = e.target.closest('.btn-view');
   if (viewBtn) {
     e.stopPropagation();

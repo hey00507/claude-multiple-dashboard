@@ -58,6 +58,23 @@ export function getLogs(date?: string, sessionId?: string, limit = 100, offset =
   return allEvents.slice(offset, offset + limit);
 }
 
+export function deleteLogsBySessionId(sessionId: string): number {
+  if (!fs.existsSync(LOGS_DIR)) return 0;
+
+  let deleted = 0;
+  const dirs = fs.readdirSync(LOGS_DIR);
+
+  for (const dir of dirs) {
+    const filePath = path.join(LOGS_DIR, dir, `${sessionId}.jsonl`);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      deleted++;
+    }
+  }
+
+  return deleted;
+}
+
 export function deleteLogs(before: string): { deletedDays: number; deletedFiles: number } {
   if (!fs.existsSync(LOGS_DIR)) return { deletedDays: 0, deletedFiles: 0 };
 

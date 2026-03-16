@@ -1,7 +1,7 @@
 # Claude Multiple Dashboard — PRD
 
-> 최종 업데이트: 2026-03-13
-> 상태: Phase 1~2 완료, Phase 3 진행 예정
+> 최종 업데이트: 2026-03-17
+> 상태: Phase 1~3 완료 (v0.2.1), Phase 4 진행 중 (v0.3.0)
 
 ## 1. 개요
 
@@ -309,61 +309,69 @@ claude-multiple-dashboard/
 
 ---
 
-## 9. 남은 작업
+## 9. 완료된 작업
 
-### Phase 2: 웹 대시보드 완성 ✅
+### Phase 1~3 완료 (v0.2.1)
 
-모든 항목 구현 완료 (세션 상세 뷰, 히스토리 개선, UI 다듬기, 히스토리 필터)
-
-### Phase 3: 안정화 & 고도화
-
-**3-1. 로그 관리**
-- `claude-dash clean --before YYYY-MM-DD` CLI 명령
-- `logRetentionDays` 기반 자동 정리 (서버 시작 시 체크)
-
-**3-2. 검색 & 필터**
-- ~~프로젝트명/도구명 필터~~ → ✅ 완료 (이벤트 타입 + 프로젝트 필터)
-- 프롬프트/파일명 텍스트 검색 (키워드 입력)
-
-**3-3. UX 고도화**
-- 키보드 단축키 (j/k 세션 이동, Enter 상세, Esc 닫기)
-- 반응형 레이아웃 (모바일/태블릿 대응)
-- 알림 뱃지 (permission_prompt 대기 세션 수를 탭 타이틀에 표시)
-- 데스크톱 알림 (Notification API — 세션이 일정 시간 이상 idle 시)
-
-**3-4. 세션 관리 (생성/종료)**
-
-대시보드에서 세션을 모니터링하는 것을 넘어, 직접 생성/종료할 수 있는 기능.
-
-*세션 종료:*
-- `POST /api/sessions/:id/kill` — 프로세스 탐색 후 SIGTERM 전송
-- `transcript_path` 또는 `session_id`로 `ps aux | grep {session_id}` → PID 획득 → kill
-- 대시보드 세션 카드에 ✕ 종료 버튼 추가
-
-*새 세션 열기:*
-- `POST /api/sessions/launch` — 새 터미널 창에서 Claude Code 실행
-- macOS: `osascript`로 Terminal.app 또는 iTerm2에 `cd {path} && claude` 전달
-- 대시보드 헤더에 "+ 새 세션" 버튼, 프로젝트 경로 입력
-
-*알려진 이슈 & 제약:*
-
-| 이슈 | 설명 | 대응 방안 |
-|------|------|-----------|
-| 프로세스 식별 | `session_id`로 PID를 찾으려면 `ps aux` 출력에서 매칭해야 함. Claude Code가 session_id를 프로세스 인자로 노출하지 않을 수 있음 | `transcript_path` 경로로 `lsof`/`fuser`를 통해 해당 파일을 열고 있는 프로세스를 역추적 |
-| 비정상 종료 | SIGTERM으로 종료 시 Claude Code의 정상 종료 흐름(세션 저장 등)을 타지 않을 수 있음 | SIGTERM 먼저 시도 → 5초 대기 → 응답 없으면 사용자에게 강제 종료(SIGKILL) 확인 |
-| 터미널 종속 | 새 세션은 터미널 앱에 의존. iTerm2/Terminal.app/Warp 등 사용자 환경에 따라 osascript가 다름 | 설정에서 터미널 앱 선택 가능하게 하거나, `TERM_PROGRAM` 환경변수로 자동 감지 |
-| macOS 전용 | osascript는 macOS 전용. Linux에서는 다른 방식 필요 | macOS: osascript, Linux: `gnome-terminal`/`xterm` 등 분기 처리. 플랫폼 감지 |
-| 권한 이슈 | 대시보드 서버가 다른 사용자의 프로세스를 kill할 수 없음 | 같은 사용자(로컬) 환경 전제. 원격 접근 시 인증 필요 (현재 스코프 외) |
-| SessionEnd 미발생 | SIGTERM으로 종료 시 Claude Code가 SessionEnd hook을 발생시키지 않을 수 있음 | 프로세스 스캐너(30s)가 disconnected로 전환하여 보완 |
-
-**3-5. npm 배포**
-- `bin` 필드 + 빌드 파이프라인 구성
-- `npx claude-dash` 글로벌 실행 지원
-- npm publish
+- Phase 1: 데이터 수집 인프라 + 테스트 (35개)
+- Phase 2: 웹 대시보드 완성 (세션 상세, 히스토리, UI)
+- Phase 3: 안정화 & 고도화 (clean CLI, 검색, 키보드, 알림, 세션 관리, npm 배포)
 
 ---
 
-## 10. 기술 스택
+## 10. Phase 4: v0.3.0 로드맵
+
+### 4-1. 데이터 관리 (우선순위: 높음)
+
+**히스토리 내보내기:**
+- 현재 필터(날짜/이벤트타입/프로젝트/검색어) 기준으로 JSON/CSV 다운로드
+- 히스토리 영역에 내보내기 버튼 추가
+
+**세션 + 로그 통합 삭제:**
+- 세션 삭제 시 해당 세션의 모든 로그도 함께 제거
+- DELETE /api/sessions/:id 에 로그 삭제 로직 추가 (log-store에서 sessionId 매칭 라인 제거)
+- "종료된 세션 모두 삭제" 일괄 삭제 버튼 (비활성 세션 그룹 영역)
+- 삭제 전 confirm 다이얼로그
+
+### 4-2. 프로젝트 디렉토리별 세션 그룹핑 (우선순위: 높음)
+
+- 같은 `cwd`를 가진 세션을 하나의 그룹으로 묶어서 표시
+- 그룹 헤더: 프로젝트 경로 (축약) + 활성 세션 수 / 전체 세션 수
+- 그룹 접기/펼치기 (기본: 활성 세션 있는 그룹은 펼침)
+- 그룹 내 정렬은 기존 상태 우선순위 유지 (active → waiting → ended)
+- 그룹 간 정렬: 활성 세션 있는 그룹 우선, 이후 최근 활동순
+
+### 4-3. 테마 & 키보드 (우선순위: 중간)
+
+**다크/라이트 테마:**
+- 현재는 다크 전용 → 라이트 테마 CSS 변수 세트 추가
+- `prefers-color-scheme` 미디어 쿼리로 시스템 설정 연동
+- 헤더에 수동 토글 버튼 (☀️/🌙)
+- localStorage에 사용자 선택 저장
+
+**Enter 키 활용:**
+- 선택된 세션에서 Enter → 상세 패널 풀뷰 전환 (420px → 전체 너비)
+- 풀뷰에서 Enter 또는 Esc → 원래 사이드패널로 복귀
+
+### 4-4. 통계 & 코드 구조 (우선순위: 낮음)
+
+**세션 통계 대시보드:**
+- GET /api/stats?date= API
+- 일별 프롬프트 수, 도구 사용 빈도 Top 10, 평균 idle time
+- 통계 탭 또는 별도 페이지
+
+**app.js 모듈 분리:**
+- 751줄 → ES Module로 분리 (sessions/history/detail/utils/sse)
+
+### 4-5. 배포
+
+- version bump → 0.3.0
+- CHANGELOG 작성
+- npm publish + GitHub release + tag
+
+---
+
+## 11. 기술 스택
 
 | 구성요소 | 기술 | 버전 |
 |----------|------|------|
@@ -381,7 +389,7 @@ claude-multiple-dashboard/
 
 ---
 
-## 11. 제약사항 & 주의사항
+## 12. 제약사항 & 주의사항
 
 | 항목 | 설명 | 대응 |
 |------|------|------|
@@ -396,7 +404,7 @@ claude-multiple-dashboard/
 
 ---
 
-## 12. 성공 지표
+## 13. 성공 지표
 
 - [x] Claude Code 세션 시작/종료가 즉시 대시보드에 반영
 - [x] 3개 이상의 동시 세션을 안정적으로 모니터링
