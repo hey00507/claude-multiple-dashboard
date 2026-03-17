@@ -103,6 +103,7 @@ document.getElementById('btn-terminal-grid').addEventListener('click', () => {
   if (isGridVisible()) { hideGrid(); } else { showGrid(); }
 });
 document.getElementById('btn-close-grid').addEventListener('click', hideGrid);
+document.getElementById('btn-grid-new-session').addEventListener('click', launchSession);
 document.getElementById('btn-export-json').addEventListener('click', exportJSON);
 document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
 

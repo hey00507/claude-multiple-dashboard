@@ -1251,6 +1251,11 @@ main {
   flex-shrink: 0;
 }
 
+.terminal-grid-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .terminal-grid {
   flex: 1;
   display: grid;

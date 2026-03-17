@@ -3,6 +3,7 @@ import { htmlEscape, truncate, downloadFile } from './utils.js';
 import { renderSessions } from './sessions.js';
 import { fetchHistory, fetchStats } from './history.js';
 import { initTerminal, connectTerminal, disconnectTerminal, pauseTerminal, resumeTerminal, disposeTerminal, fitTerminal, getCurrentPtyId, updateTerminalTheme } from './terminal.js';
+import { isGridVisible, showGrid, refreshGrid } from './terminal-grid.js';
 
 const detailPanel = document.getElementById('detail-panel');
 const detailTitle = document.getElementById('detail-title');
@@ -259,19 +260,25 @@ async function doLaunch() {
     const data = await res.json();
 
     if (data.mode === 'pty') {
-      // PTY mode: open terminal in browser
-      state.activePtyId = data.ptyId;
+      if (isGridVisible()) {
+        // Grid view: just refresh grid to include new session
+        // Small delay to let hook register the session
+        setTimeout(() => refreshGrid(), 1500);
+      } else {
+        // Detail panel view: open terminal tab
+        state.activePtyId = data.ptyId;
 
-      detailTitle.textContent = `🟢 ${cwd.split('/').filter(Boolean).pop() || cwd}`;
-      detailMeta.innerHTML = `
-        <div class="meta-item"><span class="meta-label">디렉토리</span><span class="meta-value">${cwd.replace(/^\/Users\/[^/]+/, '~')}</span></div>
-        <div class="meta-item"><span class="meta-label">상태</span><span class="meta-value"><span class="status-dot active"></span>시작 중... <span class="badge badge-pty">PTY</span></span></div>
-      `;
-      detailTimeline.innerHTML = '<p class="empty-state" style="padding:24px 0">세션 시작 중...</p>';
+        detailTitle.textContent = `🟢 ${cwd.split('/').filter(Boolean).pop() || cwd}`;
+        detailMeta.innerHTML = `
+          <div class="meta-item"><span class="meta-label">디렉토리</span><span class="meta-value">${cwd.replace(/^\/Users\/[^/]+/, '~')}</span></div>
+          <div class="meta-item"><span class="meta-label">상태</span><span class="meta-value"><span class="status-dot active"></span>시작 중... <span class="badge badge-pty">PTY</span></span></div>
+        `;
+        detailTimeline.innerHTML = '<p class="empty-state" style="padding:24px 0">세션 시작 중...</p>';
 
-      detailPanel.removeAttribute('hidden');
-      enableTerminalTab();
-      switchTab('terminal');
+        detailPanel.removeAttribute('hidden');
+        enableTerminalTab();
+        switchTab('terminal');
+      }
     }
     // terminal mode: external app opens, nothing more to do
   } else {
