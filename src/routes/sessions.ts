@@ -130,7 +130,7 @@ export async function sessionsRoute(app: FastifyInstance) {
     if (mode === 'pty') {
       try {
         const ptySession = createPty(cwd, args);
-        return { ok: true, ptyId: ptySession.ptyId, cwd, mode: 'pty' };
+        return { ok: true, ptyId: ptySession.ptyId, cwd: ptySession.cwd, mode: 'pty' };
       } catch (err: any) {
         return reply.status(500).send({ error: `Failed to create PTY: ${err.message}` });
       }

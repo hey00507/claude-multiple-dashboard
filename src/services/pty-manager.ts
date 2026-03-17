@@ -1,5 +1,6 @@
 import * as pty from 'node-pty';
 import type { IPty } from 'node-pty';
+import os from 'os';
 import { randomUUID } from 'crypto';
 import { handleEvent } from './session-store.js';
 
@@ -10,10 +11,21 @@ export interface PtySession {
   cwd: string;
   createdAt: string;
   scrollback: string[];     // ring buffer for reconnection
+  exited: boolean;
+  exitCode: number | null;
 }
 
 const MAX_SCROLLBACK = 5000;
+const PTY_LINGER_MS = 30_000; // keep exited PTY in map for 30s so WS can get exit message
 const ptySessions = new Map<string, PtySession>();
+
+/** Expand ~ to home directory (node-pty doesn't do this) */
+function expandHome(p: string): string {
+  if (p === '~' || p.startsWith('~/')) {
+    return os.homedir() + p.slice(1);
+  }
+  return p;
+}
 
 type DataCallback = (ptyId: string, data: string) => void;
 type ExitCallback = (ptyId: string, code: number) => void;
@@ -27,6 +39,7 @@ export function onExit(cb: ExitCallback) { exitListeners.add(cb); return () => e
 export function createPty(cwd: string, args: string[] = []): PtySession {
   const ptyId = `pty-${randomUUID().slice(0, 8)}`;
   const shell = process.env.SHELL || '/bin/zsh';
+  const resolvedCwd = expandHome(cwd);
 
   // Build the command: run claude inside the user's shell so PATH is correct
   const claudeCmd = args.length > 0
@@ -37,7 +50,7 @@ export function createPty(cwd: string, args: string[] = []): PtySession {
     name: 'xterm-256color',
     cols: 120,
     rows: 30,
-    cwd,
+    cwd: resolvedCwd,
     env: {
       ...process.env,
       TERM: 'xterm-256color',
@@ -49,9 +62,11 @@ export function createPty(cwd: string, args: string[] = []): PtySession {
     ptyProcess,
     ptyId,
     sessionId: null,
-    cwd,
+    cwd: resolvedCwd,
     createdAt: new Date().toISOString(),
     scrollback: [],
+    exited: false,
+    exitCode: null,
   };
 
   ptyProcess.onData((data: string) => {
@@ -64,6 +79,9 @@ export function createPty(cwd: string, args: string[] = []): PtySession {
   });
 
   ptyProcess.onExit(({ exitCode }) => {
+    session.exited = true;
+    session.exitCode = exitCode;
+
     for (const cb of exitListeners) cb(ptyId, exitCode);
 
     // If we have a linked session, mark it ended
@@ -75,7 +93,9 @@ export function createPty(cwd: string, args: string[] = []): PtySession {
         reason: 'pty_exited',
       });
     }
-    ptySessions.delete(ptyId);
+
+    // Keep in map briefly so WebSocket can deliver exit message
+    setTimeout(() => ptySessions.delete(ptyId), PTY_LINGER_MS);
   });
 
   ptySessions.set(ptyId, session);

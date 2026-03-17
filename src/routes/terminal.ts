@@ -18,6 +18,13 @@ export async function terminalRoute(app: FastifyInstance) {
       socket.send(JSON.stringify({ type: 'output', data: scrollback }));
     }
 
+    // If PTY already exited (lingering), send exit immediately
+    if (ptySession.exited) {
+      socket.send(JSON.stringify({ type: 'exit', code: ptySession.exitCode ?? -1 }));
+      socket.close();
+      return;
+    }
+
     // Forward PTY output → WebSocket
     const removeDataListener = onData((id, data) => {
       if (id !== ptyId) return;
