@@ -19,10 +19,11 @@ function getClaudeProcesses(): Map<number, string> {
       const pid = Number(parts[0]);
       if (!pid) continue;
 
-      // Try to get cwd via lsof
+      // Try to get cwd via lsof (look for cwd file descriptor)
       try {
-        const cwdLine = execSync(`lsof -p ${pid} -Fn 2>/dev/null | grep '^n/' | head -1`, { encoding: 'utf-8' }).trim();
-        const cwd = cwdLine.startsWith('n') ? cwdLine.slice(1) : '';
+        const lsofOut = execSync(`lsof -p ${pid} -Fn -d cwd 2>/dev/null`, { encoding: 'utf-8' }).trim();
+        const cwdLine = lsofOut.split('\n').find(l => l.startsWith('n/'));
+        const cwd = cwdLine ? cwdLine.slice(1) : '';
         result.set(pid, cwd);
       } catch {
         result.set(pid, '');

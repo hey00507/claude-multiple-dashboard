@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { execSync, exec } from 'child_process';
 import { getAllSessions, getSession, renameSession, deleteSession, handleEvent, togglePin } from '../services/session-store.js';
 import { deleteLogsBySessionId } from '../services/log-store.js';
-import { createPty, findPtyBySessionId, getAllPtySessions } from '../services/pty-manager.js';
+import { createPty, findPtyBySessionId, getAllPtySessions, killPty } from '../services/pty-manager.js';
 import { scanAndClean } from '../services/process-scanner.js';
 import type { SessionStatus } from '../types.js';
 
@@ -88,7 +88,6 @@ export async function sessionsRoute(app: FastifyInstance) {
 
     // If PTY session, kill the PTY directly
     if (session.source === 'pty' && session.ptyId) {
-      const { killPty } = await import('../services/pty-manager.js');
       killPty(session.ptyId);
       handleEvent({
         session_id: session.sessionId,
@@ -100,13 +99,18 @@ export async function sessionsRoute(app: FastifyInstance) {
     }
 
     // Find claude process by session_id in command args or cwd
+    // Exclude claude-dash (our own server) and Claude.app
+    const myPid = process.pid;
     let pid: number | null = null;
     try {
-      const psOutput = execSync("ps aux | grep '[c]laude'", { encoding: 'utf-8' });
+      const psOutput = execSync("ps -eo pid,args | grep '[c]laude'", { encoding: 'utf-8' });
       for (const line of psOutput.trim().split('\n')) {
+        if (line.includes('claude-dash') || line.includes('Claude.app')) continue;
+        const parts = line.trim().split(/\s+/);
+        const linePid = Number(parts[0]);
+        if (linePid === myPid) continue;
         if (line.includes(session.sessionId) || line.includes(session.cwd)) {
-          const parts = line.trim().split(/\s+/);
-          pid = Number(parts[1]);
+          pid = linePid;
           break;
         }
       }
