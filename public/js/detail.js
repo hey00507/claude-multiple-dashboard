@@ -1,7 +1,7 @@
 import { state, STATUS_ICONS, ACTIVE_STATUSES } from './state.js';
 import { htmlEscape, truncate } from './utils.js';
 import { renderSessions } from './sessions.js';
-import { fetchHistory } from './history.js';
+import { fetchHistory, fetchStats } from './history.js';
 
 const detailPanel = document.getElementById('detail-panel');
 const detailTitle = document.getElementById('detail-title');
@@ -107,6 +107,8 @@ export async function deleteSessionFromPanel(sessionId) {
     state.sessions = state.sessions.filter(s => s.sessionId !== sessionId);
     renderSessions();
     closeDetail();
+    fetchHistory();
+    fetchStats();
   } else {
     const err = await res.json();
     alert(err.error || '삭제 실패');
@@ -165,6 +167,7 @@ export async function deleteAllInactiveSessions() {
     state.sessions = state.sessions.filter(s => ACTIVE_STATUSES.includes(s.status));
     renderSessions();
     fetchHistory();
+    fetchStats();
   } else {
     const err = await res.json();
     alert(err.error || '삭제 실패');
