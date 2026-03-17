@@ -3,7 +3,12 @@ import { htmlEscape, truncate, downloadFile } from './utils.js';
 import { renderSessions } from './sessions.js';
 import { fetchHistory, fetchStats } from './history.js';
 import { initTerminal, connectTerminal, disconnectTerminal, pauseTerminal, resumeTerminal, disposeTerminal, fitTerminal, getCurrentPtyId, updateTerminalTheme } from './terminal.js';
-import { isGridVisible, showGrid, refreshGrid } from './terminal-grid.js';
+// Lazy import to avoid circular dependency (detail ↔ history ↔ detail)
+let _gridModule = null;
+async function getGridModule() {
+  if (!_gridModule) _gridModule = await import('./terminal-grid.js');
+  return _gridModule;
+}
 
 const detailPanel = document.getElementById('detail-panel');
 const detailTitle = document.getElementById('detail-title');
@@ -260,10 +265,10 @@ async function doLaunch() {
     const data = await res.json();
 
     if (data.mode === 'pty') {
-      if (isGridVisible()) {
+      const grid = await getGridModule();
+      if (grid.isGridVisible()) {
         // Grid view: just refresh grid to include new session
-        // Small delay to let hook register the session
-        setTimeout(() => refreshGrid(), 1500);
+        setTimeout(() => grid.refreshGrid(), 1500);
       } else {
         // Detail panel view: open terminal tab
         state.activePtyId = data.ptyId;
