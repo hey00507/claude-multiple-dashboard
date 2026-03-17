@@ -11,12 +11,18 @@ import { streamRoute } from './routes/stream.js';
 import { terminalRoute } from './routes/terminal.js';
 import { DEFAULT_PORT } from './config.js';
 import { compressOldLogs } from './services/log-store.js';
+import { cleanOrphanedPtySessions } from './services/session-store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export async function createServer(port = DEFAULT_PORT) {
   // Compress logs older than 30 days on startup
   try { compressOldLogs(30); } catch { /* non-critical */ }
+  // Clean PTY sessions orphaned by previous server restart
+  try {
+    const cleaned = cleanOrphanedPtySessions();
+    if (cleaned > 0) console.log(`✓ 고아 PTY 세션 ${cleaned}개 정리`);
+  } catch { /* non-critical */ }
   const app = Fastify({ logger: true });
 
   // In dev: src/ → ../public/  In dist: dist/src/ → ../../public/

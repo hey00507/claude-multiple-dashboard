@@ -192,13 +192,20 @@ function connectCell(ptyId) {
         if (dot) dot.className = 'status-dot ended';
       } else if (msg.type === 'error') {
         cell.terminal.write(`\r\n\x1b[31m[${msg.message}]\x1b[0m\r\n`);
+        // PTY not found — stop reconnecting, mark cell as dead
+        if (msg.message && msg.message.includes('not found')) {
+          cell._dead = true;
+          const dot = gridContainer.querySelector(`[data-pty-id="${ptyId}"] .tgc-title .status-dot`);
+          if (dot) dot.className = 'status-dot ended';
+        }
       }
     } catch {}
   };
 
   ws.onclose = () => {
-    // Auto reconnect if grid is visible and cell exists
-    if (visible && cells.has(ptyId)) {
+    const c = cells.get(ptyId);
+    // Auto reconnect only if not dead
+    if (visible && c && !c._dead) {
       setTimeout(() => connectCell(ptyId), 2000);
     }
   };

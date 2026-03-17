@@ -89,6 +89,26 @@ export function cleanEndedSessions(maxAgeMs = 24 * 60 * 60 * 1000): { deleted: n
   return { deleted };
 }
 
+/** Mark PTY sessions as ended if their PTY process no longer exists (e.g. after server restart) */
+export function cleanOrphanedPtySessions(): number {
+  const sessions = getAllSessions();
+  let cleaned = 0;
+  for (const session of sessions) {
+    if (session.source === 'pty' && session.ptyId && session.status !== 'ended') {
+      const pty = findPtyBySessionId(session.sessionId);
+      if (!pty) {
+        session.status = 'ended';
+        session.endedAt = new Date().toISOString();
+        session.endReason = 'pty_lost_on_restart';
+        session.idleSince = null;
+        saveSession(session);
+        cleaned++;
+      }
+    }
+  }
+  return cleaned;
+}
+
 const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   'claude-opus-4-6': 1_000_000,
   'claude-sonnet-4-6': 200_000,
