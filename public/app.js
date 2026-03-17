@@ -98,6 +98,14 @@ document.getElementById('detail-delete').addEventListener('click', () => {
 document.getElementById('detail-kill').addEventListener('click', () => {
   if (state.selectedSessionId) killSession(state.selectedSessionId);
 });
+document.getElementById('btn-cleanup').addEventListener('click', async () => {
+  const res = await fetch('/api/sessions/cleanup', { method: 'POST' });
+  if (res.ok) {
+    const data = await res.json();
+    alert(`검증 완료: ${data.checked}개 확인, ${data.ended}개 종료, ${data.stillActive}개 활성 유지`);
+    fetchSessions();
+  }
+});
 document.getElementById('btn-new-session').addEventListener('click', launchSession);
 document.getElementById('btn-terminal-grid').addEventListener('click', () => {
   if (isGridVisible()) { hideGrid(); } else { showGrid(); }

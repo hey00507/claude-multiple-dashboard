@@ -1,5 +1,6 @@
 import { execSync } from 'child_process';
 import { getSessionsByStatus, handleEvent } from './session-store.js';
+import { getAllPtySessions } from './pty-manager.js';
 
 export function startProcessScanner(intervalMs = 30_000) {
   setInterval(() => {
@@ -7,19 +8,35 @@ export function startProcessScanner(intervalMs = 30_000) {
       const activeSessions = getSessionsByStatus(['active', 'waiting_input', 'waiting_permission']);
       if (activeSessions.length === 0) return;
 
-      let runningPids: Set<number>;
+      // Get all running claude process PIDs and their cwds
+      let claudeProcesses: { pid: number; cmd: string }[] = [];
       try {
-        const output = execSync("pgrep -f 'claude'", { encoding: 'utf-8' });
-        runningPids = new Set(output.trim().split('\n').map(Number).filter(Boolean));
+        const output = execSync("ps -eo pid,args | grep '[c]laude'", { encoding: 'utf-8' });
+        claudeProcesses = output.trim().split('\n').filter(Boolean).map(line => {
+          const parts = line.trim().split(/\s+/);
+          return { pid: Number(parts[0]), cmd: parts.slice(1).join(' ') };
+        });
       } catch {
-        runningPids = new Set();
+        // No claude processes at all
       }
 
+      // Get active PTY session IDs (these are managed by us, don't mark them dead based on ps)
+      const ptySessionIds = new Set(
+        getAllPtySessions()
+          .filter(p => p.sessionId && !p.exited)
+          .map(p => p.sessionId)
+      );
+
       for (const session of activeSessions) {
-        // Session doesn't track PID directly, so we check if any claude process
-        // is working in the session's cwd using lsof or by checking /proc
-        // For now, if no claude processes exist at all, mark as disconnected
-        if (runningPids.size === 0) {
+        // Skip PTY-managed sessions — their lifecycle is handled by pty-manager
+        if (ptySessionIds.has(session.sessionId)) continue;
+
+        // Check if any claude process matches this session
+        const hasProcess = claudeProcesses.some(p =>
+          p.cmd.includes(session.sessionId) || p.cmd.includes(session.cwd)
+        );
+
+        if (!hasProcess) {
           handleEvent({
             session_id: session.sessionId,
             cwd: session.cwd,

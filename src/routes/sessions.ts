@@ -119,6 +119,44 @@ export async function sessionsRoute(app: FastifyInstance) {
     }
   });
 
+  // Validate & kill all stale sessions (active but no process)
+  app.post('/api/sessions/cleanup', async () => {
+    const sessions = getAllSessions();
+    const activeStatuses: SessionStatus[] = ['active', 'waiting_input', 'waiting_permission'];
+    const activeSessions = sessions.filter(s => activeStatuses.includes(s.status));
+
+    // Get running claude PIDs
+    let claudeLines: string[] = [];
+    try {
+      claudeLines = execSync("ps -eo pid,args | grep '[c]laude'", { encoding: 'utf-8' }).trim().split('\n').filter(Boolean);
+    } catch { /* none running */ }
+
+    // Get PTY-managed session IDs
+    const ptySessions = getAllPtySessions();
+    const ptySessionIds = new Set(ptySessions.filter(p => p.sessionId && !p.exited).map(p => p.sessionId));
+
+    let ended = 0;
+    for (const session of activeSessions) {
+      if (ptySessionIds.has(session.sessionId)) continue;
+
+      const hasProcess = claudeLines.some(l =>
+        l.includes(session.sessionId) || l.includes(session.cwd)
+      );
+
+      if (!hasProcess) {
+        handleEvent({
+          session_id: session.sessionId,
+          cwd: session.cwd,
+          hook_event_name: 'SessionEnd',
+          reason: 'cleanup_stale',
+        });
+        ended++;
+      }
+    }
+
+    return { ok: true, checked: activeSessions.length, ended, stillActive: activeSessions.length - ended };
+  });
+
   // Launch a new claude session
   app.post<{ Body: { cwd: string; mode?: 'terminal' | 'pty'; terminalApp?: string; args?: string[] } }>('/api/sessions/launch', async (request, reply) => {
     const { cwd, mode = 'pty', terminalApp, args } = request.body;

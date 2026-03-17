@@ -898,6 +898,17 @@ main {
   border-color: var(--blue);
 }
 
+.btn-cleanup {
+  color: var(--orange);
+  border-color: var(--orange);
+}
+
+.btn-cleanup:hover {
+  background: var(--orange);
+  color: #fff;
+  border-color: var(--orange);
+}
+
 .btn-kill {
   background: none;
   border: none;

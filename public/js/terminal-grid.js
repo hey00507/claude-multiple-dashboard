@@ -8,7 +8,7 @@ const gridContainer = document.getElementById('terminal-grid');
 const gridCount = document.getElementById('terminal-grid-count');
 const mainLayout = document.getElementById('main-layout');
 
-/** @type {Map<string, {terminal: Terminal, fitAddon: FitAddon, ws: WebSocket|null, resizeObs: ResizeObserver}>} */
+/** @type {Map<string, {terminal: Terminal, fitAddon: FitAddon, ws: WebSocket|null, resizeObs: ResizeObserver, ptyId: string}>} */
 const cells = new Map();
 
 let visible = false;
@@ -52,15 +52,15 @@ export function destroyGrid() {
 export async function refreshGrid() {
   if (!visible) return;
 
-  // Fetch sessions with PTY
   const res = await fetch('/api/sessions');
   if (!res.ok) return;
   const sessions = await res.json();
-  const ptySessions = sessions.filter(s => s.source === 'pty' && s.ptyId);
+  const ptySessions = sessions.filter(s => s.source === 'pty' && s.ptyId && s.status !== 'ended');
 
   gridCount.textContent = `${ptySessions.length}개 PTY 세션`;
 
   if (ptySessions.length === 0) {
+    destroyGrid();
     gridContainer.innerHTML = '<p class="empty-state" style="padding:48px 0">활성 PTY 세션이 없습니다.<br>"+ 새 세션"으로 시작하세요.</p>';
     return;
   }
@@ -72,19 +72,19 @@ export async function refreshGrid() {
     }
   }
 
-  // Add/update cells
+  // Add new cells only (don't touch existing ones)
   for (const session of ptySessions) {
     if (!cells.has(session.ptyId)) {
       addCell(session);
     }
   }
 
-  // Update grid layout based on count
-  const count = ptySessions.length;
+  updateGridLayout(ptySessions.length);
+}
+
+function updateGridLayout(count) {
   if (count === 1) {
     gridContainer.style.gridTemplateColumns = '1fr';
-  } else if (count === 2) {
-    gridContainer.style.gridTemplateColumns = '1fr 1fr';
   } else if (count <= 4) {
     gridContainer.style.gridTemplateColumns = '1fr 1fr';
   } else {
@@ -94,6 +94,11 @@ export async function refreshGrid() {
 
 function addCell(session) {
   const ptyId = session.ptyId;
+
+  // Remove empty state message if present
+  const emptyMsg = gridContainer.querySelector('.empty-state');
+  if (emptyMsg) emptyMsg.remove();
+
   const el = document.createElement('div');
   el.className = 'terminal-grid-cell';
   el.dataset.ptyId = ptyId;
@@ -127,27 +132,38 @@ function addCell(session) {
   terminal.loadAddon(fitAddon);
   terminal.open(termEl);
 
-  requestAnimationFrame(() => fitAddon.fit());
+  // Fit after DOM settles
+  requestAnimationFrame(() => {
+    fitAddon.fit();
+  });
 
-  // Input → WS
+  // Click cell to focus this terminal
+  el.addEventListener('click', () => {
+    terminal.focus();
+  });
+
+  // Input → WS (use closure to capture ptyId directly)
   terminal.onData((data) => {
     const cell = cells.get(ptyId);
-    if (cell?.ws?.readyState === WebSocket.OPEN) {
+    if (cell && cell.ws && cell.ws.readyState === WebSocket.OPEN) {
       cell.ws.send(JSON.stringify({ type: 'input', data }));
     }
   });
 
   // Resize observer
   const resizeObs = new ResizeObserver(() => {
-    fitAddon.fit();
-    const cell = cells.get(ptyId);
-    if (cell?.ws?.readyState === WebSocket.OPEN) {
-      cell.ws.send(JSON.stringify({ type: 'resize', cols: terminal.cols, rows: terminal.rows }));
-    }
+    if (!visible) return;
+    try {
+      fitAddon.fit();
+      const cell = cells.get(ptyId);
+      if (cell && cell.ws && cell.ws.readyState === WebSocket.OPEN) {
+        cell.ws.send(JSON.stringify({ type: 'resize', cols: terminal.cols, rows: terminal.rows }));
+      }
+    } catch { /* element might be detached */ }
   });
   resizeObs.observe(termEl);
 
-  const cell = { terminal, fitAddon, ws: null, resizeObs };
+  const cell = { terminal, fitAddon, ws: null, resizeObs, ptyId };
   cells.set(ptyId, cell);
 
   // Connect WebSocket
@@ -156,7 +172,7 @@ function addCell(session) {
 
 function connectCell(ptyId) {
   const cell = cells.get(ptyId);
-  if (!cell) return;
+  if (!cell || !visible) return;
 
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const ws = new WebSocket(`${protocol}//${location.host}/ws/terminal/${ptyId}`);
@@ -172,9 +188,10 @@ function connectCell(ptyId) {
         cell.terminal.write(msg.data);
       } else if (msg.type === 'exit') {
         cell.terminal.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
-        // Update header
-        const el = gridContainer.querySelector(`[data-pty-id="${ptyId}"] .tgc-title .status-dot`);
-        if (el) { el.className = 'status-dot ended'; }
+        const dot = gridContainer.querySelector(`[data-pty-id="${ptyId}"] .tgc-title .status-dot`);
+        if (dot) dot.className = 'status-dot ended';
+      } else if (msg.type === 'error') {
+        cell.terminal.write(`\r\n\x1b[31m[${msg.message}]\x1b[0m\r\n`);
       }
     } catch {}
   };
@@ -218,7 +235,6 @@ function getGridTerminalTheme() {
   };
 }
 
-/** Update themes for all grid terminals */
 export function updateGridTheme() {
   const theme = getGridTerminalTheme();
   for (const [, cell] of cells) {
