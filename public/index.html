@@ -124,8 +124,24 @@
         <button class="modal-close" id="launch-modal-close">&times;</button>
       </div>
       <div style="padding:20px">
-        <label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:6px">프로젝트 경로</label>
+        <label class="launch-label">프로젝트 경로</label>
         <input type="text" id="launch-cwd-input" class="launch-input" placeholder="~/my-project" value="~/" autocomplete="off" />
+        <label class="launch-label" style="margin-top:12px">실행 방식</label>
+        <div class="launch-mode-group">
+          <label class="launch-radio"><input type="radio" name="launch-mode" value="pty" checked /> 브라우저 터미널 (PTY)</label>
+          <label class="launch-radio"><input type="radio" name="launch-mode" value="terminal" /> 외부 터미널</label>
+        </div>
+        <div id="terminal-app-group" style="display:none;margin-top:8px">
+          <label class="launch-label">터미널 앱</label>
+          <select id="launch-terminal-app" class="launch-input" style="font-family:inherit">
+            <option value="">시스템 기본</option>
+            <option value="Ghostty">Ghostty</option>
+            <option value="Terminal">Terminal.app</option>
+            <option value="iTerm">iTerm2</option>
+            <option value="Warp">Warp</option>
+            <option value="Alacritty">Alacritty</option>
+          </select>
+        </div>
         <div class="launch-actions">
           <button class="btn-cancel" id="launch-cancel-btn">취소</button>
           <button class="btn-launch" id="launch-start-btn">시작</button>

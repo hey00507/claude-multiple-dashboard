@@ -924,6 +924,31 @@ main {
   border-color: var(--blue);
 }
 
+.launch-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.launch-mode-group {
+  display: flex;
+  gap: 16px;
+}
+
+.launch-radio {
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.launch-radio input[type="radio"] {
+  accent-color: var(--blue);
+}
+
 .launch-actions {
   display: flex;
   justify-content: flex-end;

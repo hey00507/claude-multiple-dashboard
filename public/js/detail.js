@@ -209,9 +209,21 @@ export async function killSession(sessionId) {
 
 const launchOverlay = document.getElementById('launch-modal-overlay');
 const launchCwdInput = document.getElementById('launch-cwd-input');
+const terminalAppGroup = document.getElementById('terminal-app-group');
+const terminalAppSelect = document.getElementById('launch-terminal-app');
+
+// Toggle terminal app selector based on mode radio
+document.querySelectorAll('input[name="launch-mode"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    const mode = document.querySelector('input[name="launch-mode"]:checked').value;
+    terminalAppGroup.style.display = mode === 'terminal' ? '' : 'none';
+  });
+});
 
 export function launchSession() {
   launchCwdInput.value = '~/';
+  document.querySelector('input[name="launch-mode"][value="pty"]').checked = true;
+  terminalAppGroup.style.display = 'none';
   launchOverlay.classList.add('active');
   setTimeout(() => {
     launchCwdInput.focus();
@@ -226,30 +238,40 @@ export function closeLaunchModal() {
 async function doLaunch() {
   const cwd = launchCwdInput.value.trim();
   if (!cwd) return;
+
+  const mode = document.querySelector('input[name="launch-mode"]:checked').value;
+  const terminalApp = terminalAppSelect.value || undefined;
+
   closeLaunchModal();
+
+  const body = { cwd, mode };
+  if (mode === 'terminal' && terminalApp) body.terminalApp = terminalApp;
 
   const res = await fetch('/api/sessions/launch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cwd, mode: 'pty' }),
+    body: JSON.stringify(body),
   });
 
   if (res.ok) {
     const data = await res.json();
-    // Store PTY ID and open terminal immediately
-    state.activePtyId = data.ptyId;
 
-    // Open a temporary detail view for the new PTY
-    detailTitle.textContent = `🟢 ${cwd.split('/').filter(Boolean).pop() || cwd}`;
-    detailMeta.innerHTML = `
-      <div class="meta-item"><span class="meta-label">디렉토리</span><span class="meta-value">${cwd.replace(/^\/Users\/[^/]+/, '~')}</span></div>
-      <div class="meta-item"><span class="meta-label">상태</span><span class="meta-value"><span class="status-dot active"></span>시작 중... <span class="badge badge-pty">PTY</span></span></div>
-    `;
-    detailTimeline.innerHTML = '<p class="empty-state" style="padding:24px 0">세션 시작 중...</p>';
+    if (data.mode === 'pty') {
+      // PTY mode: open terminal in browser
+      state.activePtyId = data.ptyId;
 
-    detailPanel.removeAttribute('hidden');
-    enableTerminalTab();
-    switchTab('terminal');
+      detailTitle.textContent = `🟢 ${cwd.split('/').filter(Boolean).pop() || cwd}`;
+      detailMeta.innerHTML = `
+        <div class="meta-item"><span class="meta-label">디렉토리</span><span class="meta-value">${cwd.replace(/^\/Users\/[^/]+/, '~')}</span></div>
+        <div class="meta-item"><span class="meta-label">상태</span><span class="meta-value"><span class="status-dot active"></span>시작 중... <span class="badge badge-pty">PTY</span></span></div>
+      `;
+      detailTimeline.innerHTML = '<p class="empty-state" style="padding:24px 0">세션 시작 중...</p>';
+
+      detailPanel.removeAttribute('hidden');
+      enableTerminalTab();
+      switchTab('terminal');
+    }
+    // terminal mode: external app opens, nothing more to do
   } else {
     const err = await res.json();
     alert(err.error || '실행 실패');

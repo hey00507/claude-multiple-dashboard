@@ -15,6 +15,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "postbuild": "node -e \"const fs=require('fs'); const p='dist/bin/claude-dash.js'; const c=fs.readFileSync(p,'utf8'); if(!c.startsWith('#!')) fs.writeFileSync(p,'#!/usr/bin/env node\\n'+c); fs.chmodSync(p,'755');\"",
+    "postinstall": "node -e \"const fs=require('fs'),p=require('path'); const h=p.join('node_modules','node-pty','prebuilds',process.platform+'-'+process.arch,'spawn-helper'); try{fs.chmodSync(h,'755')}catch{}\"",
     "start": "node dist/src/server.js",
     "dash": "tsx bin/claude-dash.ts",
     "test": "vitest run",

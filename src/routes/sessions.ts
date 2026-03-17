@@ -138,19 +138,27 @@ export async function sessionsRoute(app: FastifyInstance) {
 
     // Terminal mode: open external terminal (backward compatible)
     const platform = process.platform;
-    const terminal = terminalApp || process.env.TERM_PROGRAM || 'Terminal';
+    const terminal = (terminalApp || process.env.TERM_PROGRAM || 'Terminal').toLowerCase();
+    const safeCwd = cwd.replace(/'/g, "'\\''");
 
     try {
       if (platform === 'darwin') {
-        if (terminal.toLowerCase().includes('iterm')) {
-          exec(`osascript -e 'tell application "iTerm" to create window with default profile command "cd ${cwd} && claude"'`);
+        if (terminal.includes('ghostty')) {
+          // Ghostty: open new window via CLI
+          exec(`open -a Ghostty --args -e "cd '${safeCwd}' && claude"`);
+        } else if (terminal.includes('iterm')) {
+          exec(`osascript -e 'tell application "iTerm" to create window with default profile command "cd ${safeCwd} && claude"'`);
+        } else if (terminal.includes('warp')) {
+          exec(`open -a Warp --args --command "cd '${safeCwd}' && claude"`);
+        } else if (terminal.includes('alacritty')) {
+          exec(`open -a Alacritty --args -e /bin/zsh -l -c "cd '${safeCwd}' && claude"`);
         } else {
-          exec(`osascript -e 'tell application "Terminal" to do script "cd ${cwd} && claude"'`);
+          exec(`osascript -e 'tell application "Terminal" to do script "cd ${safeCwd} && claude"'`);
         }
       } else {
-        exec(`x-terminal-emulator -e "cd ${cwd} && claude" 2>/dev/null || gnome-terminal -- bash -c "cd ${cwd} && claude; exec bash" 2>/dev/null || xterm -e "cd ${cwd} && claude" &`);
+        exec(`x-terminal-emulator -e "cd ${safeCwd} && claude" 2>/dev/null || gnome-terminal -- bash -c "cd ${safeCwd} && claude; exec bash" 2>/dev/null || xterm -e "cd ${safeCwd} && claude" &`);
       }
-      return { ok: true, cwd, terminal, mode: 'terminal' };
+      return { ok: true, cwd, terminal: terminalApp || terminal, mode: 'terminal' };
     } catch {
       return reply.status(500).send({ error: 'Failed to launch terminal' });
     }
