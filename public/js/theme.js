@@ -26,6 +26,10 @@ btnTheme.addEventListener('click', () => {
   const next = effective === 'dark' ? 'light' : 'dark';
   localStorage.setItem('claude-dash-theme', next);
   applyTheme();
+  // Update terminal theme if loaded
+  try {
+    import('./terminal.js').then(m => m.updateTerminalTheme()).catch(() => {});
+  } catch {}
 });
 
 window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {

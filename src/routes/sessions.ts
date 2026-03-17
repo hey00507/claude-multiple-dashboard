@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { execSync, exec } from 'child_process';
 import { getAllSessions, getSession, renameSession, deleteSession, handleEvent, togglePin } from '../services/session-store.js';
 import { deleteLogsBySessionId } from '../services/log-store.js';
+import { createPty, findPtyBySessionId, getAllPtySessions } from '../services/pty-manager.js';
 import type { SessionStatus } from '../types.js';
 
 export async function sessionsRoute(app: FastifyInstance) {
@@ -118,13 +119,24 @@ export async function sessionsRoute(app: FastifyInstance) {
     }
   });
 
-  // Launch a new claude session in a terminal
-  app.post<{ Body: { cwd: string; terminalApp?: string } }>('/api/sessions/launch', async (request, reply) => {
-    const { cwd, terminalApp } = request.body;
+  // Launch a new claude session
+  app.post<{ Body: { cwd: string; mode?: 'terminal' | 'pty'; terminalApp?: string; args?: string[] } }>('/api/sessions/launch', async (request, reply) => {
+    const { cwd, mode = 'pty', terminalApp, args } = request.body;
     if (!cwd || typeof cwd !== 'string') {
       return reply.status(400).send({ error: 'cwd is required' });
     }
 
+    // PTY mode: spawn claude in a server-owned PTY
+    if (mode === 'pty') {
+      try {
+        const ptySession = createPty(cwd, args);
+        return { ok: true, ptyId: ptySession.ptyId, cwd, mode: 'pty' };
+      } catch (err: any) {
+        return reply.status(500).send({ error: `Failed to create PTY: ${err.message}` });
+      }
+    }
+
+    // Terminal mode: open external terminal (backward compatible)
     const platform = process.platform;
     const terminal = terminalApp || process.env.TERM_PROGRAM || 'Terminal';
 
@@ -136,12 +148,18 @@ export async function sessionsRoute(app: FastifyInstance) {
           exec(`osascript -e 'tell application "Terminal" to do script "cd ${cwd} && claude"'`);
         }
       } else {
-        // Linux fallback
         exec(`x-terminal-emulator -e "cd ${cwd} && claude" 2>/dev/null || gnome-terminal -- bash -c "cd ${cwd} && claude; exec bash" 2>/dev/null || xterm -e "cd ${cwd} && claude" &`);
       }
-      return { ok: true, cwd, terminal };
+      return { ok: true, cwd, terminal, mode: 'terminal' };
     } catch {
       return reply.status(500).send({ error: 'Failed to launch terminal' });
     }
+  });
+
+  // Get PTY session info for a given session
+  app.get<{ Params: { sessionId: string } }>('/api/sessions/:sessionId/pty', async (request, reply) => {
+    const ptySession = findPtyBySessionId(request.params.sessionId);
+    if (!ptySession) return reply.status(404).send({ error: 'No PTY session found' });
+    return { ptyId: ptySession.ptyId, cwd: ptySession.cwd, createdAt: ptySession.createdAt };
   });
 }

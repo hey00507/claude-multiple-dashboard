@@ -2,7 +2,7 @@ import { state, PAGE_SIZE } from './js/state.js';
 import { todayStr, formatDateLabel } from './js/utils.js';
 import { renderSessions, sortSessions } from './js/sessions.js';
 import { fetchHistory, renderHistory, exportJSON, exportCSV, fetchStats, applyFilterFromStats } from './js/history.js';
-import { openDetail, closeDetail, closeModal, showModal, copyToClipboard, exportTranscript, deleteSessionFromPanel, killSession, launchSession, renameSession, deleteAllInactiveSessions } from './js/detail.js';
+import { openDetail, closeDetail, closeModal, showModal, copyToClipboard, exportTranscript, deleteSessionFromPanel, killSession, launchSession, closeLaunchModal, renameSession, deleteAllInactiveSessions, updateTerminalTheme } from './js/detail.js';
 import { connectSSE, requestNotificationPermission } from './js/sse.js';
 import './js/theme.js';
 
@@ -181,7 +181,9 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (isTyping) { searchInput.blur(); return; }
     if (!shortcutsPanel.hidden) { shortcutsPanel.hidden = true; return; }
-    if (document.getElementById('modal-overlay').classList.contains('active')) {
+    if (document.getElementById('launch-modal-overlay').classList.contains('active')) {
+      closeLaunchModal();
+    } else if (document.getElementById('modal-overlay').classList.contains('active')) {
       closeModal();
     } else if (state.selectedSessionId) {
       closeDetail();

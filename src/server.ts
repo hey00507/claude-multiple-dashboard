@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
+import fastifyWebsocket from '@fastify/websocket';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -7,6 +8,7 @@ import { eventsRoute } from './routes/events.js';
 import { sessionsRoute } from './routes/sessions.js';
 import { logsRoute } from './routes/logs.js';
 import { streamRoute } from './routes/stream.js';
+import { terminalRoute } from './routes/terminal.js';
 import { DEFAULT_PORT } from './config.js';
 import { compressOldLogs } from './services/log-store.js';
 
@@ -22,6 +24,7 @@ export async function createServer(port = DEFAULT_PORT) {
   const publicDist = path.join(__dirname, '..', '..', 'public');
   const publicRoot = fs.existsSync(publicDev) ? publicDev : publicDist;
 
+  await app.register(fastifyWebsocket);
   await app.register(fastifyStatic, {
     root: publicRoot,
     prefix: '/',
@@ -31,6 +34,7 @@ export async function createServer(port = DEFAULT_PORT) {
   await app.register(sessionsRoute);
   await app.register(logsRoute);
   await app.register(streamRoute);
+  await app.register(terminalRoute);
 
   return app;
 }

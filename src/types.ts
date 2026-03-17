@@ -23,6 +23,8 @@ export interface Session {
   totalEvents: number;
   pinned?: boolean;
   transcriptPath?: string;
+  source?: 'hook' | 'pty';
+  ptyId?: string;
   model?: string;
   contextTokens?: number;
   maxContextTokens?: number;

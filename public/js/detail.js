@@ -2,11 +2,16 @@ import { state, STATUS_ICONS, ACTIVE_STATUSES } from './state.js';
 import { htmlEscape, truncate, downloadFile } from './utils.js';
 import { renderSessions } from './sessions.js';
 import { fetchHistory, fetchStats } from './history.js';
+import { initTerminal, connectTerminal, disconnectTerminal, disposeTerminal, fitTerminal, updateTerminalTheme } from './terminal.js';
 
 const detailPanel = document.getElementById('detail-panel');
 const detailTitle = document.getElementById('detail-title');
 const detailMeta = document.getElementById('detail-meta');
 const detailTimeline = document.getElementById('detail-timeline');
+const detailTabs = document.getElementById('detail-tabs');
+const tabTimeline = document.getElementById('tab-timeline');
+const tabTerminal = document.getElementById('tab-terminal');
+const terminalContainer = document.getElementById('terminal-container');
 
 export async function openDetail(sessionId) {
   state.selectedSessionId = sessionId;
@@ -22,17 +27,91 @@ export async function openDetail(sessionId) {
 
   renderDetail(session, logs);
   detailPanel.removeAttribute('hidden');
+
+  // Check if session has a PTY and auto-switch to terminal tab
+  if (session.source === 'pty' && session.ptyId) {
+    state.activePtyId = session.ptyId;
+    enableTerminalTab();
+    switchTab('terminal');
+  } else {
+    // Try fetching PTY info
+    try {
+      const ptyRes = await fetch(`/api/sessions/${sessionId}/pty`);
+      if (ptyRes.ok) {
+        const ptyInfo = await ptyRes.json();
+        state.activePtyId = ptyInfo.ptyId;
+        enableTerminalTab();
+      } else {
+        state.activePtyId = null;
+        disableTerminalTab();
+        switchTab('timeline');
+      }
+    } catch {
+      state.activePtyId = null;
+      disableTerminalTab();
+      switchTab('timeline');
+    }
+  }
 }
 
 export function closeDetail() {
   state.selectedSessionId = null;
+  state.activePtyId = null;
   detailPanel.setAttribute('hidden', '');
   detailPanel.classList.remove('fullview');
   document.querySelectorAll('.session-card').forEach(el => el.classList.remove('selected'));
+  disconnectTerminal();
 }
 
+function enableTerminalTab() {
+  const termTab = detailTabs.querySelector('[data-tab="terminal"]');
+  if (termTab) {
+    termTab.disabled = false;
+    termTab.classList.remove('disabled');
+  }
+}
+
+function disableTerminalTab() {
+  const termTab = detailTabs.querySelector('[data-tab="terminal"]');
+  if (termTab) {
+    termTab.disabled = true;
+    termTab.classList.add('disabled');
+  }
+}
+
+export function switchTab(tabName) {
+  state.activeTab = tabName;
+
+  // Update tab buttons
+  detailTabs.querySelectorAll('.detail-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabName);
+  });
+
+  // Show/hide tab content
+  tabTimeline.hidden = tabName !== 'timeline';
+  tabTerminal.hidden = tabName !== 'terminal';
+
+  if (tabName === 'terminal' && state.activePtyId) {
+    if (!terminalContainer.querySelector('.xterm')) {
+      initTerminal(terminalContainer);
+    }
+    connectTerminal(state.activePtyId);
+    // Fit after tab becomes visible
+    requestAnimationFrame(() => fitTerminal());
+  } else if (tabName === 'timeline') {
+    disconnectTerminal();
+  }
+}
+
+// Tab click handler
+detailTabs.addEventListener('click', (e) => {
+  const tab = e.target.closest('.detail-tab');
+  if (!tab || tab.disabled) return;
+  switchTab(tab.dataset.tab);
+});
+
 function renderDetail(session, logs) {
-  const icon = STATUS_ICONS[session.status] || '❓';
+  const icon = STATUS_ICONS[session.status] || '?';
   detailTitle.textContent = `${icon} ${session.projectName}`;
 
   const isActive = ACTIVE_STATUSES.includes(session.status);
@@ -43,8 +122,10 @@ function renderDetail(session, logs) {
   const lastActivity = new Date(session.lastActivityAt).toLocaleString('ko-KR');
   const ended = session.endedAt ? new Date(session.endedAt).toLocaleString('ko-KR') : null;
 
+  const sourceLabel = session.source === 'pty' ? '<span class="badge badge-pty">PTY</span>' : '';
+
   detailMeta.innerHTML = `
-    <div class="meta-item"><span class="meta-label">상태</span><span class="meta-value"><span class="status-dot ${session.status}"></span>${session.status}</span></div>
+    <div class="meta-item"><span class="meta-label">상태</span><span class="meta-value"><span class="status-dot ${session.status}"></span>${session.status} ${sourceLabel}</span></div>
     <div class="meta-item"><span class="meta-label">디렉토리</span><span class="meta-value">${session.cwd.replace(/^\/Users\/[^/]+/, '~')}</span></div>
     <div class="meta-item"><span class="meta-label">시작</span><span class="meta-value">${started}</span></div>
     <div class="meta-item"><span class="meta-label">마지막 활동</span><span class="meta-value">${lastActivity}</span></div>
@@ -124,21 +205,68 @@ export async function killSession(sessionId) {
   }
 }
 
-export async function launchSession() {
-  const cwd = prompt('Claude Code를 실행할 프로젝트 경로를 입력하세요:', '~/');
-  if (!cwd || !cwd.trim()) return;
+// --- Launch Session (modal-based) ---
+
+const launchOverlay = document.getElementById('launch-modal-overlay');
+const launchCwdInput = document.getElementById('launch-cwd-input');
+
+export function launchSession() {
+  launchCwdInput.value = '~/';
+  launchOverlay.classList.add('active');
+  setTimeout(() => {
+    launchCwdInput.focus();
+    launchCwdInput.select();
+  }, 100);
+}
+
+export function closeLaunchModal() {
+  launchOverlay.classList.remove('active');
+}
+
+async function doLaunch() {
+  const cwd = launchCwdInput.value.trim();
+  if (!cwd) return;
+  closeLaunchModal();
 
   const res = await fetch('/api/sessions/launch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cwd: cwd.trim() }),
+    body: JSON.stringify({ cwd, mode: 'pty' }),
   });
 
-  if (!res.ok) {
+  if (res.ok) {
+    const data = await res.json();
+    // Store PTY ID and open terminal immediately
+    state.activePtyId = data.ptyId;
+
+    // Open a temporary detail view for the new PTY
+    detailTitle.textContent = `🟢 ${cwd.split('/').filter(Boolean).pop() || cwd}`;
+    detailMeta.innerHTML = `
+      <div class="meta-item"><span class="meta-label">디렉토리</span><span class="meta-value">${cwd.replace(/^\/Users\/[^/]+/, '~')}</span></div>
+      <div class="meta-item"><span class="meta-label">상태</span><span class="meta-value"><span class="status-dot active"></span>시작 중... <span class="badge badge-pty">PTY</span></span></div>
+    `;
+    detailTimeline.innerHTML = '<p class="empty-state" style="padding:24px 0">세션 시작 중...</p>';
+
+    detailPanel.removeAttribute('hidden');
+    enableTerminalTab();
+    switchTab('terminal');
+  } else {
     const err = await res.json();
     alert(err.error || '실행 실패');
   }
 }
+
+// Launch modal events
+document.getElementById('launch-modal-close').addEventListener('click', closeLaunchModal);
+document.getElementById('launch-cancel-btn').addEventListener('click', closeLaunchModal);
+document.getElementById('launch-start-btn').addEventListener('click', doLaunch);
+launchCwdInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doLaunch();
+  if (e.key === 'Escape') closeLaunchModal();
+});
+launchOverlay.addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeLaunchModal();
+});
 
 export async function renameSession(sessionId) {
   const session = state.sessions.find(s => s.sessionId === sessionId);
@@ -184,7 +312,6 @@ export async function exportTranscript(sessionId) {
   const logs = await res.json();
   if (logs.length === 0) return;
 
-  // Sort chronologically
   logs.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
 
   const date = new Date(session.startedAt).toISOString().split('T')[0];
@@ -233,7 +360,6 @@ export async function exportTranscript(sessionId) {
 
 export function copyToClipboard(text) {
   navigator.clipboard.writeText(text).then(() => {
-    // Brief visual feedback
     const toast = document.createElement('div');
     toast.className = 'copy-toast';
     toast.textContent = 'Copied!';
@@ -251,3 +377,6 @@ export function showModal(title, text) {
 export function closeModal() {
   document.getElementById('modal-overlay').classList.remove('active');
 }
+
+// Export for theme toggle integration
+export { updateTerminalTheme };

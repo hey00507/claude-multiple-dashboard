@@ -707,19 +707,79 @@ main {
   color: var(--text);
 }
 
-.detail-timeline-header {
-  padding: 12px 20px;
+/* Detail tabs */
+.detail-tabs {
+  display: flex;
+  gap: 0;
   border-bottom: 1px solid var(--border);
+  padding: 0 20px;
 }
 
-.detail-timeline-header h3 {
-  font-size: 13px;
-  font-weight: 600;
+.detail-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
   color: var(--text-muted);
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.detail-tab:hover:not(.disabled) {
+  color: var(--text);
+}
+
+.detail-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--blue);
+}
+
+.detail-tab.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.terminal-status-dot {
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+/* Terminal container */
+.terminal-container {
+  height: calc(100vh - 220px);
+  min-height: 200px;
+  padding: 4px;
+  background: var(--bg);
+}
+
+.terminal-container .xterm {
+  height: 100%;
+}
+
+.detail-tab-content {
+  flex: 1;
+  min-height: 0;
 }
 
 .detail-timeline {
   padding: 0 20px;
+}
+
+/* PTY badge */
+.badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.badge-pty {
+  background: var(--blue);
+  color: #fff;
 }
 
 .timeline-item {

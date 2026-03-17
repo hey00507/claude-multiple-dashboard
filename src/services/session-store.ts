@@ -3,6 +3,7 @@ import path from 'path';
 import type { Session, SessionStatus, HookInput } from '../types.js';
 import { SESSIONS_DIR } from '../config.js';
 import { eventBus } from './event-bus.js';
+import { linkSessionToPty, findPtyBySessionId } from './pty-manager.js';
 
 function ensureDirs() {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
@@ -166,6 +167,17 @@ export function handleEvent(input: HookInput): Session {
       session.cwd = input.cwd;
       if (!session.customName) session.projectName = extractProjectName(input.cwd);
       if (input.transcript_path) session.transcriptPath = input.transcript_path;
+      // Try to link this session to a PTY
+      if (!session.source) {
+        const linked = linkSessionToPty(input.session_id, input.cwd);
+        if (linked) {
+          session.source = 'pty';
+          const pty = findPtyBySessionId(input.session_id);
+          if (pty) session.ptyId = pty.ptyId;
+        } else {
+          session.source = 'hook';
+        }
+      }
       break;
 
     case 'UserPromptSubmit':

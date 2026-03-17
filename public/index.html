@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Claude Multiple Dashboard</title>
   <link rel="stylesheet" href="/styles/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0/lib/addon-fit.min.js"></script>
 </head>
 <body>
   <div id="app">
@@ -68,10 +71,16 @@
           </div>
         </div>
         <div class="detail-meta" id="detail-meta"></div>
-        <div class="detail-timeline-header">
-          <h3>타임라인</h3>
+        <div class="detail-tabs" id="detail-tabs">
+          <button class="detail-tab active" data-tab="timeline">타임라인</button>
+          <button class="detail-tab" data-tab="terminal">터미널 <span id="terminal-status" class="terminal-status-dot"></span></button>
         </div>
-        <div class="detail-timeline" id="detail-timeline"></div>
+        <div class="detail-tab-content" id="tab-timeline">
+          <div class="detail-timeline" id="detail-timeline"></div>
+        </div>
+        <div class="detail-tab-content" id="tab-terminal" hidden>
+          <div class="terminal-container" id="terminal-container"></div>
+        </div>
       </aside>
     </div>
   </div>
@@ -106,6 +115,22 @@
         <button class="modal-close" onclick="closeModal()">&times;</button>
       </div>
       <pre id="modal-body" class="modal-body"></pre>
+    </div>
+  </div>
+  <div id="launch-modal-overlay" class="modal-overlay">
+    <div class="modal" style="max-width:440px">
+      <div class="modal-header">
+        <h3>새 Claude 세션</h3>
+        <button class="modal-close" id="launch-modal-close">&times;</button>
+      </div>
+      <div style="padding:20px">
+        <label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:6px">프로젝트 경로</label>
+        <input type="text" id="launch-cwd-input" class="launch-input" placeholder="~/my-project" value="~/" autocomplete="off" />
+        <div class="launch-actions">
+          <button class="btn-cancel" id="launch-cancel-btn">취소</button>
+          <button class="btn-launch" id="launch-start-btn">시작</button>
+        </div>
+      </div>
     </div>
   </div>
   <script type="module" src="/app.js"></script>
