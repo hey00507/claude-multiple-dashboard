@@ -83,6 +83,23 @@ export function connectSSE() {
   };
 }
 
+// Periodic session refresh as SSE backup (every 10s)
+setInterval(async () => {
+  try {
+    const res = await fetch('/api/sessions');
+    if (!res.ok) return;
+    const sessions = await res.json();
+    // Only update if session count or status changed
+    const currentKey = state.sessions.map(s => s.sessionId + s.status).join(',');
+    const newKey = sessions.map(s => s.sessionId + s.status).join(',');
+    if (currentKey !== newKey) {
+      state.sessions = sessions;
+      renderSessions();
+      updateTabTitle();
+    }
+  } catch { /* ignore */ }
+}, 10_000);
+
 // Idle timer + elapsed time updater
 setInterval(() => {
   const now = Date.now();
