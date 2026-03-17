@@ -70,6 +70,20 @@ export function createPty(cwd: string, args: string[] = []): PtySession {
   };
 
   ptyProcess.onData((data: string) => {
+    // Respond to terminal queries that xterm.js can't handle
+    // DA1 (Device Attributes): ESC[c → respond as VT220
+    if (data.includes('\x1b[c') || data.includes('\x1b[0c')) {
+      ptyProcess.write('\x1b[?62;22c');
+    }
+    // DA2 (Secondary Device Attributes): ESC[>c → respond with version
+    if (data.includes('\x1b[>c') || data.includes('\x1b[>0c')) {
+      ptyProcess.write('\x1b[>0;0;0c');
+    }
+    // Kitty keyboard protocol query: ESC[?u → respond "not supported"
+    if (data.includes('\x1b[?u')) {
+      ptyProcess.write('\x1b[?0u');
+    }
+
     // Append to scrollback ring buffer
     session.scrollback.push(data);
     if (session.scrollback.length > MAX_SCROLLBACK) {
