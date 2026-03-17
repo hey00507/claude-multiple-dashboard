@@ -22,6 +22,10 @@ export interface Session {
   endReason: string | null;
   totalEvents: number;
   pinned?: boolean;
+  transcriptPath?: string;
+  model?: string;
+  contextTokens?: number;
+  maxContextTokens?: number;
 }
 
 export interface HookInput {

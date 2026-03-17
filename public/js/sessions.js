@@ -73,6 +73,19 @@ function renderSessionCard(s) {
 
   const selected = s.sessionId === state.selectedSessionId ? ' selected' : '';
 
+  // Model & context info
+  const modelName = s.model ? s.model.replace('claude-', '').replace(/-/g, ' ') : '';
+  const ctxPercent = (s.contextTokens && s.maxContextTokens) ? Math.round(s.contextTokens / s.maxContextTokens * 100) : null;
+  const ctxLabel = s.maxContextTokens ? `${Math.round(s.maxContextTokens / 1000)}K` : '';
+  const elapsed = formatDuration(Date.now() - new Date(s.startedAt).getTime());
+
+  let metaParts = [];
+  if (modelName) metaParts.push(modelName);
+  if (ctxLabel) metaParts.push(ctxLabel);
+  if (ctxPercent !== null) metaParts.push(`ctx: ${ctxPercent}%`);
+  metaParts.push(`⏱ ${elapsed}`);
+  const metaHtml = `<div class="session-meta" data-started="${s.startedAt}">${metaParts.join(' · ')}</div>`;
+
   return `
     <div class="session-card${selected}" data-session-id="${s.sessionId}">
       <div class="top-row">
@@ -84,6 +97,7 @@ function renderSessionCard(s) {
         </span>
         ${idleHtml}
       </div>
+      ${metaHtml}
       <div class="cwd">${s.cwd.replace(/^\/Users\/[^/]+/, '~')}</div>
       <div class="last-activity">${activity}${viewBtn}</div>
     </div>

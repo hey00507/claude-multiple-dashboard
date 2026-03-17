@@ -1,5 +1,6 @@
 import { state, PAGE_SIZE } from './state.js';
 import { todayStr, formatDuration, truncate } from './utils.js';
+// (renderSessions imported in sessions.js)
 import { renderSessions } from './sessions.js';
 import { renderHistory, updateProjectFilter, fetchStats } from './history.js';
 import { openDetail } from './detail.js';
@@ -80,11 +81,18 @@ export function connectSSE() {
   };
 }
 
-// Idle timer
+// Idle timer + elapsed time updater
 setInterval(() => {
+  const now = Date.now();
   document.querySelectorAll('.idle-time[data-since]').forEach(el => {
     const since = new Date(el.dataset.since).getTime();
-    el.textContent = `⏱ idle ${formatDuration(Date.now() - since)}`;
+    el.textContent = `⏱ idle ${formatDuration(now - since)}`;
+  });
+  document.querySelectorAll('.session-meta[data-started]').forEach(el => {
+    const started = new Date(el.dataset.started).getTime();
+    const text = el.textContent;
+    // Replace the elapsed time portion (⏱ ...)
+    el.textContent = text.replace(/⏱ [\d:]+/, `⏱ ${formatDuration(now - started)}`);
   });
   updateTabTitle();
 }, 1000);
