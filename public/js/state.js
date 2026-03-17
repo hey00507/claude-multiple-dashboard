@@ -17,7 +17,7 @@ export const STATUS_ORDER = {
 };
 
 export const ACTIVE_STATUSES = ['active', 'waiting_input', 'waiting_permission'];
-export const PAGE_SIZE = 50;
+export const PAGE_SIZE = 200;
 
 // Mutable shared state
 export const state = {

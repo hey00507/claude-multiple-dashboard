@@ -1,7 +1,7 @@
 import { state, PAGE_SIZE } from './js/state.js';
 import { todayStr, formatDateLabel } from './js/utils.js';
 import { renderSessions, sortSessions } from './js/sessions.js';
-import { fetchHistory, renderHistory, exportJSON, exportCSV, fetchStats } from './js/history.js';
+import { fetchHistory, renderHistory, exportJSON, exportCSV, fetchStats, applyFilterFromStats } from './js/history.js';
 import { openDetail, closeDetail, closeModal, showModal, deleteSessionFromPanel, killSession, launchSession, renameSession, deleteAllInactiveSessions } from './js/detail.js';
 import { connectSSE, requestNotificationPermission } from './js/sse.js';
 import './js/theme.js';
@@ -103,6 +103,12 @@ document.getElementById('modal-overlay').addEventListener('click', (e) => {
 });
 
 document.addEventListener('click', (e) => {
+  const statCard = e.target.closest('.stat-card.clickable[data-filter]');
+  if (statCard) {
+    applyFilterFromStats(statCard.dataset.filter);
+    return;
+  }
+
   const bulkDeleteBtn = e.target.closest('.btn-bulk-delete');
   if (bulkDeleteBtn) {
     e.stopPropagation();

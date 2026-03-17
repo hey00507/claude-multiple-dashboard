@@ -165,10 +165,10 @@ function formatIdleTime(ms) {
 
 function renderStats(stats) {
   statsGrid.innerHTML = `
-    <div class="stat-card"><div class="stat-value">${stats.totalEvents}</div><div class="stat-label">총 이벤트</div></div>
-    <div class="stat-card"><div class="stat-value">${stats.prompts}</div><div class="stat-label">프롬프트</div></div>
-    <div class="stat-card"><div class="stat-value">${stats.responses}</div><div class="stat-label">응답</div></div>
-    <div class="stat-card"><div class="stat-value">${stats.sessions}</div><div class="stat-label">세션</div></div>
+    <div class="stat-card clickable" data-filter="all"><div class="stat-value">${stats.totalEvents}</div><div class="stat-label">총 이벤트</div></div>
+    <div class="stat-card clickable" data-filter="prompt"><div class="stat-value">${stats.prompts}</div><div class="stat-label">프롬프트</div></div>
+    <div class="stat-card clickable" data-filter="response"><div class="stat-value">${stats.responses}</div><div class="stat-label">응답</div></div>
+    <div class="stat-card" data-filter="session"><div class="stat-value">${stats.sessions}</div><div class="stat-label">세션</div></div>
     <div class="stat-card"><div class="stat-value">${formatIdleTime(stats.avgIdleGapMs)}</div><div class="stat-label">평균 대기</div></div>
   `;
 
@@ -188,6 +188,16 @@ function renderStats(stats) {
       </div>
     `).join('')}
   `;
+}
+
+export function applyFilterFromStats(filter) {
+  state.activeEventFilter = filter;
+  // Sync filter chips in UI
+  const chips = document.querySelectorAll('#event-filters .filter-chip');
+  chips.forEach(c => c.classList.toggle('active', c.dataset.filter === filter));
+  renderHistory();
+  // Scroll to history
+  document.getElementById('history').scrollIntoView({ behavior: 'smooth' });
 }
 
 export async function fetchStats() {

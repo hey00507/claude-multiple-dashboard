@@ -856,6 +856,15 @@ main {
   text-align: center;
 }
 
+.stat-card.clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.stat-card.clickable:hover {
+  background: var(--bg-card-hover);
+}
+
 .stat-value {
   font-size: 22px;
   font-weight: 700;

@@ -1,7 +1,7 @@
 import { state, PAGE_SIZE } from './state.js';
 import { todayStr, formatDuration, truncate } from './utils.js';
 import { renderSessions } from './sessions.js';
-import { renderHistory, updateProjectFilter } from './history.js';
+import { renderHistory, updateProjectFilter, fetchStats } from './history.js';
 import { openDetail } from './detail.js';
 
 export function updateTabTitle() {
@@ -25,6 +25,12 @@ function sendIdleNotification(session) {
     tag: session.sessionId,
   });
   setTimeout(() => n.close(), 8000);
+}
+
+let statsDebounce = null;
+function debouncedFetchStats() {
+  clearTimeout(statsDebounce);
+  statsDebounce = setTimeout(() => fetchStats(), 500);
 }
 
 export function connectSSE() {
@@ -60,6 +66,7 @@ export function connectSSE() {
       if (state.historyLogs.length > PAGE_SIZE) state.historyLogs.pop();
       updateProjectFilter();
       renderHistory();
+      debouncedFetchStats();
     }
 
     if (state.selectedSessionId === log.sessionId) {
