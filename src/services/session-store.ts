@@ -55,6 +55,14 @@ function saveSession(session: Session) {
   eventBus.broadcast(session);
 }
 
+export function togglePin(sessionId: string): Session | null {
+  const session = getSession(sessionId);
+  if (!session) return null;
+  session.pinned = !session.pinned;
+  saveSession(session);
+  return session;
+}
+
 export function deleteSession(sessionId: string): boolean {
   const filePath = sessionPath(sessionId);
   if (!fs.existsSync(filePath)) return false;

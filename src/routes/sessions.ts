@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { execSync, exec } from 'child_process';
-import { getAllSessions, getSession, renameSession, deleteSession, handleEvent } from '../services/session-store.js';
+import { getAllSessions, getSession, renameSession, deleteSession, handleEvent, togglePin } from '../services/session-store.js';
 import { deleteLogsBySessionId } from '../services/log-store.js';
 import type { SessionStatus } from '../types.js';
 
@@ -59,6 +59,12 @@ export async function sessionsRoute(app: FastifyInstance) {
     }
 
     return { ok: true, deletedSessions, deletedLogs };
+  });
+
+  app.post<{ Params: { sessionId: string } }>('/api/sessions/:sessionId/pin', async (request, reply) => {
+    const session = togglePin(request.params.sessionId);
+    if (!session) return reply.status(404).send({ error: 'Session not found' });
+    return session;
   });
 
   // Kill a session's claude process

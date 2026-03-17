@@ -21,6 +21,7 @@ export interface Session {
   endedAt: string | null;
   endReason: string | null;
   totalEvents: number;
+  pinned?: boolean;
 }
 
 export interface HookInput {

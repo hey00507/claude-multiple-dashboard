@@ -2,7 +2,7 @@ import { state, PAGE_SIZE } from './js/state.js';
 import { todayStr, formatDateLabel } from './js/utils.js';
 import { renderSessions, sortSessions } from './js/sessions.js';
 import { fetchHistory, renderHistory, exportJSON, exportCSV, fetchStats, applyFilterFromStats } from './js/history.js';
-import { openDetail, closeDetail, closeModal, showModal, deleteSessionFromPanel, killSession, launchSession, renameSession, deleteAllInactiveSessions } from './js/detail.js';
+import { openDetail, closeDetail, closeModal, showModal, copyToClipboard, deleteSessionFromPanel, killSession, launchSession, renameSession, deleteAllInactiveSessions } from './js/detail.js';
 import { connectSSE, requestNotificationPermission } from './js/sse.js';
 import './js/theme.js';
 
@@ -24,7 +24,7 @@ window.closeModal = closeModal;
 function initDateSelector() {
   const today = new Date();
   dateSelect.innerHTML = '';
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 30; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
     const val = d.toISOString().split('T')[0];
@@ -116,10 +116,32 @@ document.addEventListener('click', (e) => {
     return;
   }
 
+  const copyBtn = e.target.closest('.btn-copy');
+  if (copyBtn) {
+    e.stopPropagation();
+    copyToClipboard(copyBtn.dataset.copyText);
+    return;
+  }
+
   const viewBtn = e.target.closest('.btn-view');
   if (viewBtn) {
     e.stopPropagation();
     showModal(viewBtn.dataset.modalTitle, viewBtn.dataset.modalText);
+    return;
+  }
+
+  const pinBtn = e.target.closest('.btn-pin');
+  if (pinBtn) {
+    e.stopPropagation();
+    const sid = pinBtn.dataset.sessionId;
+    fetch(`/api/sessions/${sid}/pin`, { method: 'POST' }).then(res => {
+      if (res.ok) return res.json();
+    }).then(updated => {
+      if (!updated) return;
+      const idx = state.sessions.findIndex(s => s.sessionId === updated.sessionId);
+      if (idx >= 0) state.sessions[idx] = updated;
+      renderSessions();
+    });
     return;
   }
 

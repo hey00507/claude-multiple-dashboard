@@ -16,6 +16,8 @@ export function getSessionStatus(sessionId) {
 
 export function sortSessions(list) {
   return list.sort((a, b) => {
+    // Pinned sessions first
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     const orderDiff = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9);
     if (orderDiff !== 0) return orderDiff;
     return new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime();
@@ -77,6 +79,7 @@ function renderSessionCard(s) {
         <span class="project-name">
           <span class="status-dot ${s.status}"></span>${icon}
           <span class="project-name-text" data-session-id="${s.sessionId}">${htmlEscape(s.projectName)}</span>
+          <button class="btn-pin" data-session-id="${s.sessionId}" title="${s.pinned ? '핀 해제' : '핀 고정'}">${s.pinned ? '📌' : '📍'}</button>
           <button class="btn-rename" data-session-id="${s.sessionId}" title="이름 변경">✏️</button>
         </span>
         ${idleHtml}

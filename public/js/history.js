@@ -1,6 +1,7 @@
 import { state, STATUS_ICONS, PAGE_SIZE } from './state.js';
 import { todayStr, formatDateLabel, htmlEscape, truncate, downloadFile } from './utils.js';
 import { getProjectName, getSessionStatus } from './sessions.js';
+import { copyToClipboard } from './detail.js';
 
 const historyEl = document.getElementById('history-list');
 const historyTitle = document.getElementById('history-title');
@@ -88,13 +89,15 @@ export function renderHistory() {
     if (log.tool) detail = `${log.tool} ${log.input?.file_path || log.input?.command || ''}`;
     if (log.prompt) { detail = `💬 "${truncate(log.prompt, 40)}"`; if (log.prompt.length > 40) fullText = log.prompt; }
     if (log.response) { detail = `🤖 "${truncate(log.response, 40)}"`; if (log.response.length > 40) fullText = log.response; }
+    const copyText = log.prompt || log.response || null;
+    const copyBtn = copyText ? `<button class="btn-copy" data-copy-text="${htmlEscape(copyText)}">copy</button>` : '';
     const viewBtn = fullText ? `<button class="btn-view" data-modal-title="${log.response ? '🤖 Response' : '💬 Prompt'}" data-modal-text="${htmlEscape(fullText)}">view</button>` : '';
 
     return `
       <div class="history-item">
         <span class="time">${time}</span>
         <span class="project">${icon} ${htmlEscape(projectName)}</span>
-        <span class="detail">${detail}${viewBtn}</span>
+        <span class="detail">${detail}${copyBtn}${viewBtn}</span>
       </div>
     `;
   }).join('');

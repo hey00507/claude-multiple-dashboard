@@ -176,6 +176,17 @@ export async function deleteAllInactiveSessions() {
 
 // --- Modal ---
 
+export function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    // Brief visual feedback
+    const toast = document.createElement('div');
+    toast.className = 'copy-toast';
+    toast.textContent = 'Copied!';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 1500);
+  });
+}
+
 export function showModal(title, text) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').textContent = text;

@@ -497,6 +497,25 @@ main {
 .status-dot.ended { background: var(--gray); }
 .status-dot.disconnected { background: var(--red); }
 
+/* Pin button */
+.btn-pin {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.session-card:hover .btn-pin {
+  opacity: 0.6;
+}
+
+.btn-pin:hover {
+  opacity: 1 !important;
+}
+
 /* Rename button */
 .btn-rename {
   background: none;
@@ -531,6 +550,43 @@ main {
 
 .btn-view:hover {
   background: var(--blue);
+}
+
+.btn-copy {
+  background: var(--border);
+  color: var(--text);
+  border: none;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+.btn-copy:hover {
+  background: var(--green);
+}
+
+.copy-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--green);
+  color: #fff;
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  z-index: 200;
+  animation: fadeInOut 1.5s ease;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  20% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* Detail side panel */
