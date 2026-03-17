@@ -70,16 +70,36 @@ export async function sessionsRoute(app: FastifyInstance) {
   });
 
   // Kill a session's claude process
-  app.post<{ Params: { sessionId: string } }>('/api/sessions/:sessionId/kill', async (request, reply) => {
+  app.post<{ Params: { sessionId: string }; Querystring: { force?: string } }>('/api/sessions/:sessionId/kill', async (request, reply) => {
     const session = getSession(request.params.sessionId);
     if (!session) return reply.status(404).send({ error: 'Session not found' });
 
     const activeStatuses: SessionStatus[] = ['active', 'waiting_input', 'waiting_permission'];
     if (!activeStatuses.includes(session.status)) {
-      return reply.status(400).send({ error: 'Session is not active' });
+      // Force: allow killing even if already in non-active state
+      handleEvent({
+        session_id: session.sessionId,
+        cwd: session.cwd,
+        hook_event_name: 'SessionEnd',
+        reason: 'force_killed_from_dashboard',
+      });
+      return { ok: true, sessionId: session.sessionId, method: 'force_ended' };
     }
 
-    // Find claude process by session_id in command args or transcript_path
+    // If PTY session, kill the PTY directly
+    if (session.source === 'pty' && session.ptyId) {
+      const { killPty } = await import('../services/pty-manager.js');
+      killPty(session.ptyId);
+      handleEvent({
+        session_id: session.sessionId,
+        cwd: session.cwd,
+        hook_event_name: 'SessionEnd',
+        reason: 'killed_from_dashboard',
+      });
+      return { ok: true, sessionId: session.sessionId, method: 'pty_killed' };
+    }
+
+    // Find claude process by session_id in command args or cwd
     let pid: number | null = null;
     try {
       const psOutput = execSync("ps aux | grep '[c]laude'", { encoding: 'utf-8' });
@@ -107,7 +127,6 @@ export async function sessionsRoute(app: FastifyInstance) {
 
     try {
       process.kill(pid, 'SIGTERM');
-      // Give it a moment then update status
       handleEvent({
         session_id: session.sessionId,
         cwd: session.cwd,
@@ -116,7 +135,14 @@ export async function sessionsRoute(app: FastifyInstance) {
       });
       return { ok: true, sessionId: session.sessionId, pid, method: 'sigterm' };
     } catch {
-      return reply.status(500).send({ error: `Failed to kill process ${pid}` });
+      // SIGTERM failed, try force marking
+      handleEvent({
+        session_id: session.sessionId,
+        cwd: session.cwd,
+        hook_event_name: 'SessionEnd',
+        reason: 'kill_failed_force_ended',
+      });
+      return { ok: true, sessionId: session.sessionId, method: 'force_ended' };
     }
   });
 

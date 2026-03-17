@@ -205,9 +205,32 @@ export async function deleteSessionFromPanel(sessionId) {
 }
 
 export async function killSession(sessionId) {
-  if (!confirm('이 세션을 종료하시겠습니까?')) return;
+  const action = confirm('이 세션을 종료하시겠습니까?\n\n프로세스를 찾을 수 없으면 강제로 종료 상태로 변경합니다.');
+  if (!action) return;
+
   const res = await fetch(`/api/sessions/${sessionId}/kill`, { method: 'POST' });
-  if (!res.ok) {
+  if (res.ok) {
+    const data = await res.json();
+    // Update local state immediately
+    const idx = state.sessions.findIndex(s => s.sessionId === sessionId);
+    if (idx >= 0) {
+      state.sessions[idx].status = 'ended';
+      state.sessions[idx].endedAt = new Date().toISOString();
+    }
+    renderSessions();
+
+    // Show feedback
+    const toast = document.createElement('div');
+    toast.className = 'copy-toast';
+    toast.textContent = data.method === 'sigterm' ? '프로세스 종료됨' : '세션 종료 처리됨';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 1500);
+
+    // Refresh detail panel
+    if (state.selectedSessionId === sessionId) {
+      openDetail(sessionId);
+    }
+  } else {
     const err = await res.json();
     alert(err.error || '종료 실패');
   }
