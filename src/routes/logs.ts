@@ -3,10 +3,10 @@ import { getLogs, deleteLogs, getStats } from '../services/log-store.js';
 
 export async function logsRoute(app: FastifyInstance) {
   app.get<{
-    Querystring: { date?: string; sessionId?: string; limit?: string; offset?: string };
+    Querystring: { date?: string; sessionId?: string; limit?: string; offset?: string; search?: string };
   }>('/api/logs', async (request) => {
-    const { date, sessionId, limit, offset } = request.query;
-    return getLogs(date, sessionId, Number(limit) || 100, Number(offset) || 0);
+    const { date, sessionId, limit, offset, search } = request.query;
+    return getLogs(date, sessionId, Number(limit) || 100, Number(offset) || 0, search);
   });
 
   app.get<{ Querystring: { date?: string } }>('/api/stats', async (request) => {

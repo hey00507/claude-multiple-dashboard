@@ -43,9 +43,15 @@ export function renameSession(sessionId: string, newName: string): Session | nul
   return session;
 }
 
+function atomicWrite(filePath: string, data: string) {
+  const tmp = filePath + '.tmp';
+  fs.writeFileSync(tmp, data);
+  fs.renameSync(tmp, filePath);
+}
+
 function saveSession(session: Session) {
   ensureDirs();
-  fs.writeFileSync(sessionPath(session.sessionId), JSON.stringify(session, null, 2));
+  atomicWrite(sessionPath(session.sessionId), JSON.stringify(session, null, 2));
   eventBus.broadcast(session);
 }
 

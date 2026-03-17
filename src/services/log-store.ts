@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import zlib from 'zlib';
 import type { HookInput, LogEvent } from '../types.js';
 import { LOGS_DIR } from '../config.js';
 import { eventBus } from './event-bus.js';
@@ -29,33 +30,61 @@ export function appendLog(input: HookInput) {
   if (input.notification_type) logEvent.notificationType = input.notification_type;
 
   const filePath = path.join(dir, `${input.session_id}.jsonl`);
-  fs.appendFileSync(filePath, JSON.stringify(logEvent) + '\n');
+  const line = JSON.stringify(logEvent) + '\n';
+  const fd = fs.openSync(filePath, 'a');
+  try {
+    fs.writeSync(fd, line);
+  } finally {
+    fs.closeSync(fd);
+  }
   eventBus.broadcastLog(logEvent);
 }
 
-export function getLogs(date?: string, sessionId?: string, limit = 100, offset = 0): LogEvent[] {
+export function getLogs(date?: string, sessionId?: string, limit = 100, offset = 0, search?: string): LogEvent[] {
   const targetDate = date || new Date().toISOString().split('T')[0];
   const dir = path.join(LOGS_DIR, targetDate);
 
   if (!fs.existsSync(dir)) return [];
 
-  const files = sessionId
-    ? [`${sessionId}.jsonl`]
-    : fs.readdirSync(dir).filter(f => f.endsWith('.jsonl'));
+  const allFiles = fs.readdirSync(dir);
+  let files: string[];
+  if (sessionId) {
+    files = allFiles.filter(f => f === `${sessionId}.jsonl` || f === `${sessionId}.jsonl.gz`);
+  } else {
+    files = allFiles.filter(f => f.endsWith('.jsonl') || f.endsWith('.jsonl.gz'));
+  }
 
   const allEvents: LogEvent[] = [];
 
   for (const file of files) {
     const filePath = path.join(dir, file);
     if (!fs.existsSync(filePath)) continue;
-    const lines = fs.readFileSync(filePath, 'utf-8').trim().split('\n').filter(Boolean);
+    let content: string;
+    if (file.endsWith('.gz')) {
+      content = zlib.gunzipSync(fs.readFileSync(filePath)).toString('utf-8');
+    } else {
+      content = fs.readFileSync(filePath, 'utf-8');
+    }
+    const lines = content.trim().split('\n').filter(Boolean);
     for (const line of lines) {
-      allEvents.push(JSON.parse(line));
+      try { allEvents.push(JSON.parse(line)); } catch { /* skip corrupted lines */ }
     }
   }
 
-  allEvents.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
-  return allEvents.slice(offset, offset + limit);
+  let filtered = allEvents;
+  if (search) {
+    const q = search.toLowerCase();
+    filtered = allEvents.filter(log =>
+      (log.prompt && log.prompt.toLowerCase().includes(q)) ||
+      (log.response && log.response.toLowerCase().includes(q)) ||
+      (log.tool && log.tool.toLowerCase().includes(q)) ||
+      (log.input?.file_path && String(log.input.file_path).toLowerCase().includes(q)) ||
+      (log.input?.command && String(log.input.command).toLowerCase().includes(q))
+    );
+  }
+
+  filtered.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+  return filtered.slice(offset, offset + limit);
 }
 
 export interface DayStats {
@@ -127,6 +156,36 @@ export function deleteLogsBySessionId(sessionId: string): number {
   }
 
   return deleted;
+}
+
+export function compressOldLogs(olderThanDays = 30): { compressedDays: number; compressedFiles: number } {
+  if (!fs.existsSync(LOGS_DIR)) return { compressedDays: 0, compressedFiles: 0 };
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - olderThanDays);
+  const dirs = fs.readdirSync(LOGS_DIR);
+  let compressedDays = 0;
+  let compressedFiles = 0;
+
+  for (const dir of dirs) {
+    if (new Date(dir) >= cutoff) continue;
+    const dirPath = path.join(LOGS_DIR, dir);
+    const files = fs.readdirSync(dirPath).filter(f => f.endsWith('.jsonl'));
+    if (files.length === 0) continue;
+
+    for (const file of files) {
+      const filePath = path.join(dirPath, file);
+      const gzPath = filePath + '.gz';
+      if (fs.existsSync(gzPath)) continue; // already compressed
+      const content = fs.readFileSync(filePath);
+      fs.writeFileSync(gzPath, zlib.gzipSync(content));
+      fs.unlinkSync(filePath);
+      compressedFiles++;
+    }
+    compressedDays++;
+  }
+
+  return { compressedDays, compressedFiles };
 }
 
 export function deleteLogs(before: string): { deletedDays: number; deletedFiles: number } {
