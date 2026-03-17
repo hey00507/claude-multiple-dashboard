@@ -19,15 +19,15 @@ export function isGridVisible() {
 
 export function showGrid() {
   visible = true;
-  gridView.hidden = false;
-  mainLayout.style.display = 'none';
+  gridView.removeAttribute('hidden');
+  mainLayout.setAttribute('hidden', '');
   refreshGrid();
 }
 
 export function hideGrid() {
   visible = false;
-  gridView.hidden = true;
-  mainLayout.style.display = '';
+  gridView.setAttribute('hidden', '');
+  mainLayout.removeAttribute('hidden');
   // Pause all WS but keep cells alive
   for (const [, cell] of cells) {
     if (cell.ws) {

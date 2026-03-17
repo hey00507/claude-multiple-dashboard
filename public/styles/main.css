@@ -79,6 +79,10 @@ body {
   display: flex;
 }
 
+.main-layout[hidden] {
+  display: none !important;
+}
+
 main {
   flex: 1;
   min-width: 0;
@@ -1235,9 +1239,16 @@ main {
 
 .terminal-grid-view {
   height: calc(100vh - 57px);
-  display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.terminal-grid-view[hidden] {
+  display: none !important;
+}
+
+.terminal-grid-view:not([hidden]) {
+  display: flex;
 }
 
 .terminal-grid-header {
