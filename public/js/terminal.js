@@ -70,6 +70,11 @@ export function connectTerminal(ptyId) {
   // Switching to a different PTY
   if (currentPtyId !== ptyId) {
     hardDisconnect();
+    // Clear terminal screen for the new PTY (scrollback will come from server)
+    if (terminal) {
+      terminal.clear();
+      terminal.reset();
+    }
   }
 
   currentPtyId = ptyId;
