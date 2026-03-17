@@ -4,6 +4,7 @@ import { renderSessions, sortSessions } from './js/sessions.js';
 import { fetchHistory, renderHistory, exportJSON, exportCSV, fetchStats, applyFilterFromStats } from './js/history.js';
 import { openDetail, closeDetail, closeModal, showModal, copyToClipboard, exportTranscript, deleteSessionFromPanel, killSession, launchSession, closeLaunchModal, renameSession, deleteAllInactiveSessions, updateTerminalTheme } from './js/detail.js';
 import { connectSSE, requestNotificationPermission } from './js/sse.js';
+import { showGrid, hideGrid, isGridVisible, refreshGrid } from './js/terminal-grid.js';
 import './js/theme.js';
 
 // --- DOM refs ---
@@ -98,6 +99,10 @@ document.getElementById('detail-kill').addEventListener('click', () => {
   if (state.selectedSessionId) killSession(state.selectedSessionId);
 });
 document.getElementById('btn-new-session').addEventListener('click', launchSession);
+document.getElementById('btn-terminal-grid').addEventListener('click', () => {
+  if (isGridVisible()) { hideGrid(); } else { showGrid(); }
+});
+document.getElementById('btn-close-grid').addEventListener('click', hideGrid);
 document.getElementById('btn-export-json').addEventListener('click', exportJSON);
 document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
 

@@ -1231,6 +1231,96 @@ main {
   opacity: 1;
 }
 
+/* --- Terminal Grid View --- */
+
+.terminal-grid-view {
+  height: calc(100vh - 57px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.terminal-grid-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.terminal-grid {
+  flex: 1;
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.terminal-grid-cell {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.terminal-grid-cell-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.tgc-title {
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tgc-cwd {
+  color: var(--text-muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-grid-cell-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 2px;
+}
+
+.terminal-grid-cell-body .xterm {
+  height: 100%;
+}
+
+.btn-terminal-grid {
+  position: relative;
+}
+
+.btn-terminal-grid.has-pty::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  background: var(--green);
+  border-radius: 50%;
+}
+
 /* --- Responsive --- */
 
 @media (max-width: 1024px) {
