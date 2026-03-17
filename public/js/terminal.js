@@ -7,11 +7,11 @@ let fitAddon = null;
 /** @type {string | null} */
 let currentPtyId = null;
 let reconnectTimer = null;
-let connectionState = 'disconnected'; // 'connected' | 'disconnected' | 'reconnecting'
+let connectionState = 'disconnected'; // 'connected' | 'disconnected' | 'reconnecting' | 'exited'
+let userDisconnected = false; // true only when user explicitly disconnects
+let processExited = false;
 
 const RECONNECT_DELAY = 2000;
-const MAX_RECONNECT_ATTEMPTS = 5;
-let reconnectAttempts = 0;
 
 export function initTerminal(container) {
   if (terminal) {
@@ -32,7 +32,6 @@ export function initTerminal(container) {
   terminal.loadAddon(fitAddon);
   terminal.open(container);
 
-  // Small delay to let DOM settle before fitting
   requestAnimationFrame(() => {
     fitAddon.fit();
   });
@@ -59,16 +58,30 @@ export function initTerminal(container) {
 }
 
 export function connectTerminal(ptyId) {
+  // Already connected to this PTY
   if (currentPtyId === ptyId && ws && ws.readyState === WebSocket.OPEN) return;
 
-  disconnectTerminal();
+  // Reconnecting to same PTY — don't reset
+  if (currentPtyId === ptyId && !processExited && !userDisconnected) {
+    // Already trying to reconnect
+    if (connectionState === 'reconnecting') return;
+  }
+
+  // Switching to a different PTY
+  if (currentPtyId !== ptyId) {
+    hardDisconnect();
+  }
+
   currentPtyId = ptyId;
-  reconnectAttempts = 0;
+  userDisconnected = false;
+  processExited = false;
 
   doConnect(ptyId);
 }
 
 function doConnect(ptyId) {
+  if (userDisconnected || processExited) return;
+
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const url = `${protocol}//${location.host}/ws/terminal/${ptyId}`;
 
@@ -76,10 +89,8 @@ function doConnect(ptyId) {
   ws = new WebSocket(url);
 
   ws.onopen = () => {
-    reconnectAttempts = 0;
     setConnectionState('connected');
 
-    // Send initial size
     if (terminal) {
       ws.send(JSON.stringify({ type: 'resize', cols: terminal.cols, rows: terminal.rows }));
     }
@@ -93,7 +104,8 @@ function doConnect(ptyId) {
           if (terminal) terminal.write(msg.data);
           break;
         case 'exit':
-          setConnectionState('disconnected');
+          processExited = true;
+          setConnectionState('exited');
           if (terminal) terminal.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
           break;
         case 'error':
@@ -104,36 +116,61 @@ function doConnect(ptyId) {
   };
 
   ws.onclose = () => {
-    if (currentPtyId === ptyId && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+    // Don't reconnect if user disconnected or process exited
+    if (userDisconnected || processExited) return;
+
+    // Auto-reconnect indefinitely until user disconnects or process exits
+    if (currentPtyId === ptyId) {
       setConnectionState('reconnecting');
-      reconnectAttempts++;
       reconnectTimer = setTimeout(() => doConnect(ptyId), RECONNECT_DELAY);
-    } else {
-      setConnectionState('disconnected');
     }
   };
 
   ws.onerror = () => {
-    // onclose will fire after this
+    // onclose will handle reconnect
   };
 }
 
-export function disconnectTerminal() {
+/** Pause WebSocket (when switching tabs) but keep state for resume */
+export function pauseTerminal() {
   clearTimeout(reconnectTimer);
   reconnectTimer = null;
-  currentPtyId = null;
-  reconnectAttempts = 0;
-
   if (ws) {
-    ws.onclose = null; // Prevent reconnect
+    ws.onclose = null;
     ws.close();
     ws = null;
   }
+  // Don't change connectionState or currentPtyId — we'll resume later
+}
+
+/** Resume connection after pause */
+export function resumeTerminal() {
+  if (!currentPtyId || processExited || userDisconnected) return;
+  if (ws && ws.readyState === WebSocket.OPEN) return;
+  doConnect(currentPtyId);
+}
+
+/** User explicitly disconnects — stop all reconnection */
+export function disconnectTerminal() {
+  userDisconnected = true;
+  hardDisconnect();
   setConnectionState('disconnected');
 }
 
+function hardDisconnect() {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+  currentPtyId = null;
+
+  if (ws) {
+    ws.onclose = null;
+    ws.close();
+    ws = null;
+  }
+}
+
 export function disposeTerminal() {
-  disconnectTerminal();
+  hardDisconnect();
   if (terminal) {
     terminal.dispose();
     terminal = null;
@@ -151,6 +188,10 @@ export function getConnectionState() {
   return connectionState;
 }
 
+export function getCurrentPtyId() {
+  return currentPtyId;
+}
+
 function setConnectionState(newState) {
   connectionState = newState;
   updateConnectionIndicator();
@@ -164,15 +205,17 @@ function updateConnectionIndicator() {
     connected: '연결됨',
     disconnected: '연결 끊김',
     reconnecting: '재연결 중...',
+    exited: '프로세스 종료',
   };
   const colors = {
     connected: 'var(--green)',
-    disconnected: 'var(--red)',
+    disconnected: 'var(--text-muted)',
     reconnecting: 'var(--yellow)',
+    exited: 'var(--text-muted)',
   };
 
-  indicator.textContent = labels[connectionState];
-  indicator.style.color = colors[connectionState];
+  indicator.textContent = labels[connectionState] || '';
+  indicator.style.color = colors[connectionState] || '';
 }
 
 function getTerminalTheme() {
@@ -227,7 +270,6 @@ function getTerminalTheme() {
   };
 }
 
-/** Re-apply theme (call on theme toggle) */
 export function updateTerminalTheme() {
   if (terminal) {
     terminal.options.theme = getTerminalTheme();

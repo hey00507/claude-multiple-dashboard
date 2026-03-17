@@ -2,7 +2,7 @@ import { state, STATUS_ICONS, ACTIVE_STATUSES } from './state.js';
 import { htmlEscape, truncate, downloadFile } from './utils.js';
 import { renderSessions } from './sessions.js';
 import { fetchHistory, fetchStats } from './history.js';
-import { initTerminal, connectTerminal, disconnectTerminal, disposeTerminal, fitTerminal, updateTerminalTheme } from './terminal.js';
+import { initTerminal, connectTerminal, disconnectTerminal, pauseTerminal, resumeTerminal, disposeTerminal, fitTerminal, getCurrentPtyId, updateTerminalTheme } from './terminal.js';
 
 const detailPanel = document.getElementById('detail-panel');
 const detailTitle = document.getElementById('detail-title');
@@ -28,39 +28,41 @@ export async function openDetail(sessionId) {
   renderDetail(session, logs);
   detailPanel.removeAttribute('hidden');
 
-  // Check if session has a PTY and auto-switch to terminal tab
-  if (session.source === 'pty' && session.ptyId) {
-    state.activePtyId = session.ptyId;
-    enableTerminalTab();
-    switchTab('terminal');
-  } else {
-    // Try fetching PTY info
+  // Determine PTY info
+  let ptyId = session.ptyId || null;
+
+  if (!ptyId && session.source === 'pty') {
+    // Try fetching PTY info from API
     try {
       const ptyRes = await fetch(`/api/sessions/${sessionId}/pty`);
-      if (ptyRes.ok) {
-        const ptyInfo = await ptyRes.json();
-        state.activePtyId = ptyInfo.ptyId;
-        enableTerminalTab();
-      } else {
-        state.activePtyId = null;
-        disableTerminalTab();
-        switchTab('timeline');
-      }
-    } catch {
-      state.activePtyId = null;
-      disableTerminalTab();
-      switchTab('timeline');
+      if (ptyRes.ok) ptyId = (await ptyRes.json()).ptyId;
+    } catch { /* ignore */ }
+  }
+
+  if (ptyId) {
+    state.activePtyId = ptyId;
+    enableTerminalTab();
+    // If already connected to this PTY, just resume; otherwise connect
+    if (getCurrentPtyId() === ptyId) {
+      switchTab('terminal');
+      resumeTerminal();
+    } else {
+      switchTab('terminal');
     }
+  } else {
+    state.activePtyId = null;
+    disableTerminalTab();
+    switchTab('timeline');
   }
 }
 
 export function closeDetail() {
   state.selectedSessionId = null;
-  state.activePtyId = null;
   detailPanel.setAttribute('hidden', '');
   detailPanel.classList.remove('fullview');
   document.querySelectorAll('.session-card').forEach(el => el.classList.remove('selected'));
-  disconnectTerminal();
+  // Pause WS but keep PTY alive — user can reconnect by clicking the session again
+  pauseTerminal();
 }
 
 function enableTerminalTab() {
@@ -96,10 +98,10 @@ export function switchTab(tabName) {
       initTerminal(terminalContainer);
     }
     connectTerminal(state.activePtyId);
-    // Fit after tab becomes visible
     requestAnimationFrame(() => fitTerminal());
   } else if (tabName === 'timeline') {
-    disconnectTerminal();
+    // Just pause WS when switching to timeline — don't kill the connection
+    pauseTerminal();
   }
 }
 

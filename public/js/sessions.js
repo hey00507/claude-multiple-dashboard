@@ -86,12 +86,15 @@ function renderSessionCard(s) {
   metaParts.push(`⏱ ${elapsed}`);
   const metaHtml = `<div class="session-meta" data-started="${s.startedAt}">${metaParts.join(' · ')}</div>`;
 
+  const sourceBadge = s.source === 'pty' ? '<span class="badge badge-pty">PTY</span>' : '';
+
   return `
     <div class="session-card${selected}" data-session-id="${s.sessionId}">
       <div class="top-row">
         <span class="project-name">
           <span class="status-dot ${s.status}"></span>${icon}
           <span class="project-name-text" data-session-id="${s.sessionId}">${htmlEscape(s.projectName)}</span>
+          ${sourceBadge}
           <button class="btn-pin" data-session-id="${s.sessionId}" title="${s.pinned ? '핀 해제' : '핀 고정'}">${s.pinned ? '📌' : '📍'}</button>
           <button class="btn-rename" data-session-id="${s.sessionId}" title="이름 변경">✏️</button>
         </span>
