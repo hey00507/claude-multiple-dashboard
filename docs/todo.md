@@ -114,3 +114,82 @@
 - [x] 키보드 단축키 도움말 패널 (`?` 키 / 버튼)
 - [x] npm publish (v0.3.0)
 - [x] GitHub release + tag
+
+### 4-5. 추가 개선 ✅
+- [x] 트러블슈팅 가이드 (`docs/TROUBLESHOOTING.md`)
+- [x] 통계 실시간 갱신 (SSE log_update → 디바운스 500ms)
+- [x] 통계 카드 클릭 → 히스토리 필터 연동 + 스크롤
+- [x] PAGE_SIZE 50 → 200 (필터 시 충분한 양 표시)
+- [x] 삭제 후 히스토리 + 통계 즉시 갱신
+
+---
+
+## Phase 5: 브라우저 터미널 — v0.4.0
+
+대시보드 안에서 Claude Code 세션을 직접 실행하고 상호작용하는 핵심 기능.
+
+### 5-1. 터미널 백엔드
+- [ ] `node-pty` + `@fastify/websocket` 의존성 추가
+- [ ] WebSocket 엔드포인트 (`/ws/terminal/:sessionId`)
+- [ ] PTY 생성/관리 서비스 (`pty-manager.ts`)
+  - spawn `claude` 프로세스, PTY ↔ WebSocket 브릿지
+  - 세션 종료 시 PTY 정리
+- [ ] 기존 "새 세션" API를 PTY 기반으로 전환
+
+### 5-2. 터미널 프론트엔드
+- [ ] `xterm.js` + `xterm-addon-fit` 통합 (CDN 또는 vendor)
+- [ ] 상세 패널에 "타임라인 / 터미널" 탭 전환 UI
+- [ ] 터미널 크기 자동 조정 (fit addon + resize 이벤트)
+- [ ] 연결 끊김 시 재연결 + 상태 표시
+
+### 5-3. 멀티 터미널
+- [ ] 탭으로 여러 세션 터미널 동시 전환
+- [ ] 비활성 탭은 백그라운드 유지 (PTY 살아있음)
+
+### 5-4. 보안
+- [ ] API Key 인증 (config.json에 설정, 헤더/쿠키로 검증)
+- [ ] localhost 외 접근 시 인증 필수 강제
+- [ ] WebSocket 연결 시 인증 검증
+
+---
+
+## Phase 6: 안정성 & 데이터 무결성
+
+### 6-1. 파일 I/O 안정화
+- [ ] JSONL 원자적 쓰기 — temp 파일 → rename (크래시 시 로그 깨짐 방지)
+- [ ] 세션 파일 쓰기 큐 — 동시 hook 이벤트 race condition 방지
+
+### 6-2. 스토리지 최적화
+- [ ] 로그 압축 — 30일+ 로그 .gz 자동 압축
+- [ ] 서버사이드 검색 — GET /api/logs에 `?search=` 파라미터 추가
+
+---
+
+## Phase 7: UX 개선
+
+### 7-1. 즉시 적용 가능
+- [ ] 응답/프롬프트 복사 버튼 (원클릭 클립보드)
+- [ ] 날짜 선택 확장 — 7일 → 30일 + 커스텀 날짜 입력
+- [ ] 세션 즐겨찾기/핀 — 중요 세션 상단 고정
+
+### 7-2. 데이터 활용
+- [ ] 세션 트랜스크립트 Markdown 내보내기 — 전체 대화를 `.md`로 export
+- [ ] 활동 히트맵 — 시간대별 활동량 시각화 (캘린더 그리드)
+
+---
+
+## Phase 8: CLI 확장
+
+- [ ] `claude-dash tail [sessionId]` — 터미널에서 세션 실시간 모니터링
+- [ ] `claude-dash config get/set` — CLI에서 설정 조회/변경
+- [ ] `claude-dash export [sessionId]` — 세션 트랜스크립트 CLI export
+- [ ] `claude-dash status --filter active` — 상태별 필터
+
+---
+
+## Backlog (낮은 우선순위)
+
+- [ ] ARIA 라벨 + 접근성 (스크린 리더 지원, 모달 포커스 트랩)
+- [ ] API 문서 (REST 엔드포인트 명세)
+- [ ] 프론트엔드 테스트 (jsdom 기반 JS 모듈 테스트)
+- [ ] Webhook/Slack 알림 연동
