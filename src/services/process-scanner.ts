@@ -4,35 +4,21 @@ import { getAllPtySessions } from './pty-manager.js';
 
 /**
  * Get PIDs of actual `claude` CLI processes (not claude-dash, Claude.app, etc.)
- * Returns a Map of PID → cwd
  */
-function getClaudeProcesses(): Map<number, string> {
-  const result = new Map<number, string>();
+function getClaudePids(): Set<number> {
   try {
-    // Find `claude` processes that are the actual CLI (not our dashboard or Claude.app)
     const output = execSync(
-      "ps -eo pid,comm,args | grep -E '^\\s*[0-9]+\\s+claude\\s' | grep -v claude-dash",
+      "ps -eo pid,comm | grep -E '^\\s*[0-9]+\\s+claude$'",
       { encoding: 'utf-8' }
     );
-    for (const line of output.trim().split('\n').filter(Boolean)) {
-      const parts = line.trim().split(/\s+/);
-      const pid = Number(parts[0]);
-      if (!pid) continue;
-
-      // Try to get cwd via lsof (look for cwd file descriptor)
-      try {
-        const lsofOut = execSync(`lsof -p ${pid} -Fn -d cwd 2>/dev/null`, { encoding: 'utf-8' }).trim();
-        const cwdLine = lsofOut.split('\n').find(l => l.startsWith('n/'));
-        const cwd = cwdLine ? cwdLine.slice(1) : '';
-        result.set(pid, cwd);
-      } catch {
-        result.set(pid, '');
-      }
-    }
+    return new Set(
+      output.trim().split('\n').filter(Boolean)
+        .map(line => Number(line.trim().split(/\s+/)[0]))
+        .filter(Boolean)
+    );
   } catch {
-    // No claude processes
+    return new Set();
   }
-  return result;
 }
 
 export function startProcessScanner(intervalMs = 30_000) {
@@ -44,35 +30,36 @@ export function scanAndClean(): { checked: number; ended: number; stillActive: n
     const activeSessions = getSessionsByStatus(['active', 'waiting_input', 'waiting_permission']);
     if (activeSessions.length === 0) return { checked: 0, ended: 0, stillActive: 0 };
 
-    const claudeProcs = getClaudeProcesses();
+    const claudePids = getClaudePids();
 
-    // PTY-managed sessions: skip (lifecycle is handled by pty-manager)
+    // PTY-managed sessions: skip (lifecycle handled by pty-manager)
     const ptySessionIds = new Set(
       getAllPtySessions()
         .filter(p => p.sessionId && !p.exited)
         .map(p => p.sessionId)
     );
 
+    // If there are ANY claude processes running, don't end hook-based sessions.
+    // We can't reliably map PID→session on macOS without /proc.
+    // Only mark sessions as ended when zero claude processes exist.
+    if (claudePids.size > 0) {
+      // There are active claude processes — leave hook sessions alone
+      const nonPtySessions = activeSessions.filter(s => !ptySessionIds.has(s.sessionId));
+      return { checked: activeSessions.length, ended: 0, stillActive: activeSessions.length };
+    }
+
+    // No claude processes at all — end all non-PTY sessions
     let ended = 0;
     for (const session of activeSessions) {
       if (ptySessionIds.has(session.sessionId)) continue;
 
-      // Check if any claude process is associated with this session
-      let found = false;
-      for (const [, cwd] of claudeProcs) {
-        if (cwd && cwd === session.cwd) { found = true; break; }
-      }
-
-      if (!found) {
-        // No matching process found → mark as ended
-        handleEvent({
-          session_id: session.sessionId,
-          cwd: session.cwd,
-          hook_event_name: 'SessionEnd',
-          reason: 'process_not_found',
-        });
-        ended++;
-      }
+      handleEvent({
+        session_id: session.sessionId,
+        cwd: session.cwd,
+        hook_event_name: 'SessionEnd',
+        reason: 'process_not_found',
+      });
+      ended++;
     }
 
     return { checked: activeSessions.length, ended, stillActive: activeSessions.length - ended };
