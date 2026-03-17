@@ -1,5 +1,5 @@
 import { state, STATUS_ICONS, ACTIVE_STATUSES } from './state.js';
-import { htmlEscape, truncate } from './utils.js';
+import { htmlEscape, truncate, downloadFile } from './utils.js';
 import { renderSessions } from './sessions.js';
 import { fetchHistory, fetchStats } from './history.js';
 
@@ -172,6 +172,61 @@ export async function deleteAllInactiveSessions() {
     const err = await res.json();
     alert(err.error || '삭제 실패');
   }
+}
+
+// --- Transcript Export ---
+
+export async function exportTranscript(sessionId) {
+  const session = state.sessions.find(s => s.sessionId === sessionId);
+  if (!session) return;
+
+  const res = await fetch(`/api/logs?sessionId=${sessionId}&limit=10000`);
+  const logs = await res.json();
+  if (logs.length === 0) return;
+
+  // Sort chronologically
+  logs.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+
+  const date = new Date(session.startedAt).toISOString().split('T')[0];
+  const lines = [
+    `# ${session.projectName} — Session Transcript`,
+    '',
+    `| 항목 | 값 |`,
+    `|------|-----|`,
+    `| 세션 ID | \`${session.sessionId}\` |`,
+    `| 디렉토리 | \`${session.cwd}\` |`,
+    `| 시작 | ${new Date(session.startedAt).toLocaleString('ko-KR')} |`,
+    session.endedAt ? `| 종료 | ${new Date(session.endedAt).toLocaleString('ko-KR')} |` : null,
+    session.model ? `| 모델 | ${session.model} |` : null,
+    `| 총 이벤트 | ${session.totalEvents} |`,
+    '',
+    '---',
+    '',
+  ].filter(Boolean);
+
+  for (const log of logs) {
+    const time = new Date(log.ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    if (log.prompt) {
+      lines.push(`### 💬 Prompt (${time})`, '', log.prompt, '');
+    } else if (log.response) {
+      lines.push(`### 🤖 Response (${time})`, '', log.response, '');
+    } else if (log.tool) {
+      const input = log.input;
+      let detail = '';
+      if (input?.file_path) detail = `\`${input.file_path}\``;
+      else if (input?.command) detail = `\`${input.command}\``;
+      else if (input?.pattern) detail = `\`${input.pattern}\``;
+      lines.push(`> 🔧 **${log.tool}** ${detail} (${time})`, '');
+    } else if (log.event === 'SessionStart') {
+      lines.push(`> ▶️ 세션 시작 (${time})`, '');
+    } else if (log.event === 'SessionEnd') {
+      lines.push(`> ⏹ 세션 종료 (${time})`, '');
+    }
+  }
+
+  const filename = `${date}-${session.projectName.replace(/[^a-zA-Z0-9가-힣-_]/g, '_')}.md`;
+  downloadFile(lines.join('\n'), filename, 'text/markdown');
 }
 
 // --- Modal ---

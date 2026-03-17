@@ -156,6 +156,7 @@ export function exportCSV() {
 const statsSection = document.getElementById('stats-section');
 const statsGrid = document.getElementById('stats-grid');
 const statsTools = document.getElementById('stats-tools');
+const statsHeatmap = document.getElementById('stats-heatmap');
 
 function formatIdleTime(ms) {
   if (ms === 0) return '-';
@@ -190,6 +191,29 @@ function renderStats(stats) {
         <span class="tool-bar-count">${count}</span>
       </div>
     `).join('')}
+  `;
+
+  renderHeatmap(stats.hourly);
+}
+
+function renderHeatmap(hourly) {
+  if (!hourly || hourly.every(v => v === 0)) {
+    statsHeatmap.innerHTML = '';
+    return;
+  }
+  const max = Math.max(...hourly);
+  const cells = hourly.map((count, hour) => {
+    const intensity = max > 0 ? count / max : 0;
+    const bg = count === 0
+      ? 'var(--border)'
+      : `rgba(59, 130, 246, ${0.2 + intensity * 0.8})`;
+    const label = `${hour}시: ${count}건`;
+    return `<div class="heatmap-cell" style="background:${bg}" title="${label}"><span class="heatmap-hour">${hour}</span></div>`;
+  }).join('');
+
+  statsHeatmap.innerHTML = `
+    <div class="heatmap-title">시간대별 활동</div>
+    <div class="heatmap-grid">${cells}</div>
   `;
 }
 

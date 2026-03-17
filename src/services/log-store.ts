@@ -94,6 +94,7 @@ export interface DayStats {
   tools: Record<string, number>;
   sessions: number;
   avgIdleGapMs: number;
+  hourly: number[];
 }
 
 export function getStats(date?: string): DayStats {
@@ -102,6 +103,7 @@ export function getStats(date?: string): DayStats {
   let prompts = 0;
   let responses = 0;
   const sessionIds = new Set<string>();
+  const hourly = new Array(24).fill(0);
   const stopTimes: number[] = [];
   const resumeTimes: number[] = [];
 
@@ -112,6 +114,8 @@ export function getStats(date?: string): DayStats {
     if (log.tool) tools[log.tool] = (tools[log.tool] || 0) + 1;
     if (log.event === 'Stop') stopTimes.push(new Date(log.ts).getTime());
     if (log.event === 'UserPromptSubmit') resumeTimes.push(new Date(log.ts).getTime());
+    const hour = new Date(log.ts).getHours();
+    hourly[hour]++;
   }
 
   // Calculate average idle gap: time between Stop and next UserPromptSubmit
@@ -138,6 +142,7 @@ export function getStats(date?: string): DayStats {
     tools,
     sessions: sessionIds.size,
     avgIdleGapMs: idleCount > 0 ? Math.round(totalIdleMs / idleCount) : 0,
+    hourly,
   };
 }
 
