@@ -1,73 +1,77 @@
 # Claude Multiple Dashboard
 
-Claude Code를 **병렬로 여러 세션** 띄워 작업할 때, 모든 세션의 상태를 **한눈에 모니터링**하는 웹 대시보드입니다.
+[한국어](README.ko.md) | **English**
+
+A real-time web dashboard for monitoring **multiple Claude Code sessions** in parallel.
 
 ![Light Mode Overview](docs/screenshots/light-overview.png)
 
 ---
 
-## 왜 필요한가?
+## Why?
 
-Claude Code를 프로젝트별로 3~5개 세션을 동시에 띄워 작업할 때:
+When running 3-5 Claude Code sessions simultaneously across different projects:
 
-- 어떤 세션이 작업 중이고, 어디에 **입력이 필요한지** 한눈에 파악
-- 응답 완료 후 **방치되는 세션**을 놓치지 않도록 idle time 실시간 추적
-- 각 세션에서 **어떤 작업이 진행됐는지** 히스토리 + 통계로 추적
+- Hard to tell which session is **waiting for input**
+- Sessions sit **idle for minutes** without notice
+- No way to track **what each session has been doing**
+
+This dashboard puts all sessions on one screen with real-time status, idle time tracking, and full activity history.
 
 ---
 
-## 핵심 기능
+## Features
 
-| 기능 | 설명 |
-|------|------|
-| **실시간 세션 모니터링** | 🟢 작업중 / 🟡 입력대기 / 🟠 권한대기 / ⚪ 종료 / 🔴 연결끊김 |
-| **모델 & 컨텍스트 표시** | 세션 카드에 모델명, 컨텍스트 사용률(ctx: N%), 경과 시간 실시간 표시 |
-| **Idle Time 카운트** | 응답 대기 상태 진입 시점부터 `⏱ idle MM:SS` 실시간 표시 |
-| **프롬프트 & 응답 추적** | 사용자 프롬프트와 Claude의 마지막 응답을 대시보드에서 확인 |
-| **통계 대시보드** | 이벤트/프롬프트/응답 수 + 도구 사용 Top 10 + 시간대별 활동 히트맵 |
-| **프로젝트 그룹핑** | 같은 디렉토리의 세션을 자동으로 그룹화 |
-| **세션 즐겨찾기** | 중요 세션을 핀 고정하여 상단 배치 |
-| **다크/라이트 테마** | 시스템 설정 자동 감지 + 수동 토글 |
-| **키보드 단축키** | j/k 탐색, / 검색, Enter 풀뷰, ? 도움말 |
-| **데이터 내보내기** | 히스토리 JSON/CSV + 세션 트랜스크립트 Markdown |
+| Feature | Description |
+|---------|-------------|
+| **Real-time Monitoring** | 🟢 Active / 🟡 Waiting Input / 🟠 Waiting Permission / ⚪ Ended / 🔴 Disconnected |
+| **Model & Context** | Model name, context usage (ctx: N%), elapsed time on each session card |
+| **Idle Time Counter** | Live `⏱ idle MM:SS` from the moment a session starts waiting |
+| **Prompt & Response** | View user prompts and Claude's last response directly on the dashboard |
+| **Stats Dashboard** | Event/prompt/response counts + top 10 tool usage chart + hourly activity heatmap |
+| **Project Grouping** | Sessions in the same directory are automatically grouped |
+| **Session Pinning** | Pin important sessions to the top |
+| **Dark/Light Theme** | Auto-detects system preference + manual toggle |
+| **Keyboard Shortcuts** | j/k navigate, / search, Enter fullview, ? help |
+| **Data Export** | History as JSON/CSV + session transcript as Markdown |
 
-### 대시보드 (다크 모드 + 상세 패널)
+### Dark Mode + Detail Panel
 
 ![Dark Mode with Detail](docs/screenshots/dark-detail.png)
 
-### 키보드 단축키
+### Keyboard Shortcuts
 
 <img src="docs/screenshots/shortcuts.png" width="300" alt="Keyboard Shortcuts">
 
 ---
 
-## 설치
+## Installation
 
-### 전제 조건
+### Prerequisites
 
 - **Node.js** v20+
 - **jq** (macOS: `brew install jq`)
 - **Claude Code** CLI
 
-### npm 글로벌 설치 (권장)
+### npm Global Install (Recommended)
 
 ```bash
 npm install -g claude-multiple-dashboard
 ```
 
-### 설정 & 실행
+### Setup & Run
 
 ```bash
-# 1. 초기화 (hooks 등록 + 데이터 디렉토리 생성)
+# 1. Initialize (register hooks + create data directory)
 claude-dash init
 
-# 2. 서버 시작 + 브라우저 열기
+# 2. Start server + open browser
 claude-dash open
 
-# 3. Claude Code를 평소처럼 사용하면 자동으로 모니터링됩니다
+# 3. Use Claude Code as usual — sessions are monitored automatically
 ```
 
-### 소스에서 실행
+### Run from Source
 
 ```bash
 git clone https://github.com/hey00507/claude-multiple-dashboard.git
@@ -79,32 +83,32 @@ npm run dash open
 
 ---
 
-## 업데이트
+## Update
 
 ```bash
-# npm 글로벌 설치한 경우
+# npm global install
 npm update -g claude-multiple-dashboard
 
-# 소스에서 실행하는 경우
+# From source
 git pull && npm install && npm run build
 ```
 
 ---
 
-## CLI 명령어
+## CLI Commands
 
-| 명령 | 설명 |
-|------|------|
-| `claude-dash init` | hooks 등록 및 데이터 디렉토리 초기화 |
-| `claude-dash start [-p port]` | 대시보드 서버 시작 (기본: 7420) |
-| `claude-dash stop` | 대시보드 서버 종료 |
-| `claude-dash status` | 터미널에서 세션 상태 확인 |
-| `claude-dash open [-p port]` | 서버 시작 + 브라우저 열기 |
-| `claude-dash clean` | 오래된 로그 정리 (`--days N` 또는 `--before YYYY-MM-DD`) |
+| Command | Description |
+|---------|-------------|
+| `claude-dash init` | Register hooks and initialize data directory |
+| `claude-dash start [-p port]` | Start dashboard server (default: 7420) |
+| `claude-dash stop` | Stop dashboard server |
+| `claude-dash status` | Check session status in terminal |
+| `claude-dash open [-p port]` | Start server + open browser |
+| `claude-dash clean` | Clean old logs (`--days N` or `--before YYYY-MM-DD`) |
 
 ---
 
-## 아키텍처
+## Architecture
 
 ```
 Claude Code Sessions (A, B, C, ...)
@@ -114,53 +118,53 @@ dashboard-hook.sh (non-blocking, 1s timeout)
     │  curl POST
     ▼
 Dashboard Server (Fastify 5)
-    ├── REST API (세션/로그 CRUD + 통계)
-    ├── SSE Stream (실시간 업데이트)
-    └── Static Files (웹 대시보드)
+    ├── REST API (session/log CRUD + stats)
+    ├── SSE Stream (real-time updates)
+    └── Static Files (web dashboard)
          │
-         ├── sessions/*.json    (세션 메타데이터)
-         ├── logs/YYYY-MM-DD/   (JSONL, 30일+ 자동 .gz 압축)
+         ├── sessions/*.json    (session metadata)
+         ├── logs/YYYY-MM-DD/   (JSONL, auto .gz after 30 days)
          └── config.json
               │  SSE
               ▼
-Web Dashboard (브라우저, Vanilla JS ES Modules)
+Web Dashboard (browser, Vanilla JS ES Modules)
 ```
 
-- 서버가 꺼져 있어도 Claude Code에 **영향 없음**
-- 데이터는 **로컬 파일시스템**에 저장 (별도 DB 불필요)
-- 30일 이상 로그는 자동 **gzip 압축**
+- **Zero impact** on Claude Code even if server is down
+- Data stored on **local filesystem** (no database required)
+- Logs older than 30 days are **auto-compressed** to gzip
 
 ---
 
-## 기술 스택
+## Tech Stack
 
-| 구성요소 | 기술 |
-|----------|------|
+| Component | Technology |
+|-----------|-----------|
 | Runtime | Node.js v20+ |
 | Language | TypeScript (strict) |
 | Server | Fastify 5 |
-| Frontend | Vanilla JS (ES Modules, 빌드 도구 없음) |
+| Frontend | Vanilla JS (ES Modules, no build tools) |
 | Real-time | SSE (Server-Sent Events) |
 | Storage | Local filesystem (JSON + JSONL + gzip) |
-| Test | Vitest (41개) |
+| Test | Vitest (41 tests) |
 | CLI | Commander |
 
 ---
 
-## 개발
+## Development
 
 ```bash
-npm run dev          # 개발 서버 (tsx watch mode)
-npm test             # Vitest 테스트 실행
-npx tsc --noEmit     # 타입 체크
-npm run build        # TypeScript 빌드
+npm run dev          # Dev server (tsx watch mode)
+npm test             # Run Vitest tests
+npx tsc --noEmit     # Type check
+npm run build        # TypeScript build
 ```
 
 ---
 
-## 트러블슈팅
+## Troubleshooting
 
-[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) 참조
+See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 
 ---
 
