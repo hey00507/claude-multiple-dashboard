@@ -4,28 +4,7 @@
 
 A real-time web dashboard for monitoring **multiple Claude Code sessions** in parallel.
 
----
-
-## The Problem
-
-When running 3-5 Claude Code sessions simultaneously, every terminal looks the same — same header, same prompt. You can't tell which session is which without switching into each one.
-
-![All sessions look identical](docs/screenshots/problem-no-labels.png)
-
-## The Solution
-
-This dashboard puts all sessions on one screen with real-time status, idle time tracking, session colors, and full activity history.
-
-![Dashboard with session colors](docs/screenshots/session-colors.png)
-
-Name your sessions with `/session-setting` and the colors show up in both the terminal statusline and the dashboard:
-
-```bash
-/session-setting name:Dashboard color:red
-/session-setting name:CloudPocket color:blue
-```
-
-![Terminal sessions with names](docs/screenshots/terminal-sessions.png)
+![Session Colors](docs/screenshots/session-colors.png)
 
 ---
 
@@ -34,18 +13,22 @@ Name your sessions with `/session-setting` and the colors show up in both the te
 | Feature | Description |
 |---------|-------------|
 | **Real-time Monitoring** | 🟢 Active / 🟡 Waiting Input / 🟠 Waiting Permission / ⚪ Ended / 🔴 Disconnected |
-| **Session Colors** | Color-coded session cards — name and color your sessions for instant recognition |
+| **Session Colors** | Color-coded session cards with `/session-setting` integration |
 | **Idle Time Counter** | Live `⏱ idle MM:SS` from the moment a session starts waiting |
 | **Model & Context** | Model name, context usage (ctx: N%), elapsed time on each card |
 | **Browser Terminal** | Run Claude Code directly in the dashboard via xterm.js + node-pty |
 | **Terminal Grid** | View all PTY sessions simultaneously in a responsive grid |
-| **Stats Dashboard** | Event/prompt/response counts + top 10 tool usage chart + hourly activity heatmap |
+| **Session Presets** | Save name/color per project — auto-applied on next session |
+| **Stats Dashboard** | Event/prompt/response counts + top 10 tool usage chart + hourly heatmap |
 | **Project Grouping** | Sessions in the same directory are automatically grouped |
-| **Session Presets** | Save name/color per project directory — auto-applied on next session |
-| **Prompt & Response** | View user prompts and Claude's last response directly on the dashboard |
+| **Prompt & Response** | View user prompts and Claude's last response on the dashboard |
 | **Dark/Light Theme** | Auto-detects system preference + manual toggle |
 | **Keyboard Shortcuts** | j/k navigate, / search, Enter fullview, ? help |
 | **Data Export** | History as JSON/CSV + session transcript as Markdown |
+
+### Terminal Sessions
+
+![Terminal Sessions](docs/screenshots/terminal-sessions.png)
 
 ### Dark Mode + Detail Panel
 
@@ -95,18 +78,6 @@ npm run dash open
 
 ---
 
-## Update
-
-```bash
-# npm global install
-npm update -g claude-multiple-dashboard
-
-# From source
-git pull && npm install && npm run build
-```
-
----
-
 ## CLI Commands
 
 | Command | Description |
@@ -122,28 +93,24 @@ git pull && npm install && npm run build
 
 ## Session Presets & Colors
 
-Name and color your sessions for quick identification. Colors show up in both the terminal statusline and the dashboard.
-
-### Setup
-
 Copy the skill to your Claude Code commands directory:
 
 ```bash
 cp commands/session-setting.md ~/.claude/commands/
 ```
 
-### Usage
+Usage:
 
 ```bash
 /session-setting name:Dashboard color:red           # Current session only
-/session-setting name:Dashboard color:red --save     # + Save as default for this project
+/session-setting name:Dashboard color:red --save     # + Save as project default
 /session-setting --list                              # List saved defaults
 /session-setting --remove                            # Remove default for current directory
 ```
 
 Supported colors: `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
 
-**Project defaults** are saved in `~/.claude-dashboard/config.json` and automatically applied when a new session starts in the same directory. Generic paths like `~/` are excluded from matching.
+Project defaults are saved in `~/.claude-dashboard/config.json` and auto-applied on session start.
 
 ---
 
@@ -166,15 +133,12 @@ Dashboard Server (Fastify 5)
          ├── sessions/*.json    (session metadata)
          ├── logs/YYYY-MM-DD/   (JSONL, auto .gz after 30 days)
          └── config.json        (session presets)
-              │  SSE + WebSocket
-              ▼
-Web Dashboard (browser, Vanilla JS ES Modules)
 ```
 
-- **Zero impact** on Claude Code even if server is down
-- Data stored on **local filesystem** (no database required)
-- Logs older than 30 days are **auto-compressed** to gzip
-- Session names survive context compaction via **3-tier fallback** (/tmp → session JSON → config defaults)
+- Zero impact on Claude Code even if server is down
+- Local filesystem storage (no database)
+- Logs auto-compressed to gzip after 30 days
+- Session names persist via 3-tier fallback (/tmp → session JSON → config defaults)
 
 ---
 
@@ -190,22 +154,22 @@ Web Dashboard (browser, Vanilla JS ES Modules)
 
 | Method | Endpoint | Description | Response |
 |--------|----------|-------------|----------|
-| `GET` | `/api/sessions` | List all sessions (`?status=active,waiting_input`) | `Session[]` |
+| `GET` | `/api/sessions` | List sessions (`?status=active,waiting_input`) | `Session[]` |
 | `GET` | `/api/sessions/:id` | Get session detail | `Session` |
 | `PATCH` | `/api/sessions/:id` | Update name/color (`{ projectName?, color? }`) | `Session` |
-| `POST` | `/api/sessions/:id/kill` | Terminate session (SIGTERM or force end) | `{ ok, method }` |
+| `POST` | `/api/sessions/:id/kill` | Terminate session | `{ ok, method }` |
 | `POST` | `/api/sessions/:id/pin` | Toggle pin | `Session` |
-| `DELETE` | `/api/sessions/:id` | Delete session + associated logs | `{ ok, logsDeleted }` |
-| `DELETE` | `/api/sessions` | Bulk delete all inactive sessions | `{ ok, deletedSessions, deletedLogs }` |
-| `POST` | `/api/sessions/launch` | Launch new session (`{ cwd, mode, terminalApp? }`) | `{ ok, ptyId?, mode }` |
+| `DELETE` | `/api/sessions/:id` | Delete session + logs | `{ ok, logsDeleted }` |
+| `DELETE` | `/api/sessions` | Bulk delete inactive sessions | `{ ok, deletedSessions, deletedLogs }` |
+| `POST` | `/api/sessions/launch` | Launch new session (`{ cwd, mode }`) | `{ ok, ptyId?, mode }` |
 | `POST` | `/api/sessions/cleanup` | Scan & clean stale sessions | `{ ok, checked, ended, disconnected }` |
 
-### Session Defaults (Presets)
+### Session Defaults
 
 | Method | Endpoint | Description | Response |
 |--------|----------|-------------|----------|
-| `GET` | `/api/session-defaults` | List all project defaults | `{ cwd: { name?, color? } }` |
-| `PUT` | `/api/session-defaults` | Save default (`{ cwd, name?, color? }`) | `{ ok, cwd, name?, color? }` |
+| `GET` | `/api/session-defaults` | List project defaults | `{ cwd: { name?, color? } }` |
+| `PUT` | `/api/session-defaults` | Save default (`{ cwd, name?, color? }`) | `{ ok, cwd }` |
 | `DELETE` | `/api/session-defaults` | Remove default (`{ cwd }`) | `{ ok, cwd }` |
 
 ### Logs & Stats
@@ -214,7 +178,7 @@ Web Dashboard (browser, Vanilla JS ES Modules)
 |--------|----------|-------------|----------|
 | `GET` | `/api/logs` | Query logs (`?date=&sessionId=&search=&limit=&offset=`) | `LogEvent[]` |
 | `DELETE` | `/api/logs` | Delete logs (`?before=YYYY-MM-DD`) | `{ ok, deleted }` |
-| `GET` | `/api/stats` | Daily stats (`?date=`) | `{ totalEvents, prompts, responses, sessions, tools, avgIdleMs }` |
+| `GET` | `/api/stats` | Daily stats (`?date=`) | `{ totalEvents, prompts, responses, sessions, tools }` |
 
 ### Real-time
 
