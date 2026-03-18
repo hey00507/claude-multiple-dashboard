@@ -9,7 +9,8 @@
   "files": [
     "dist/",
     "public/",
-    "hooks/"
+    "hooks/",
+    "commands/"
   ],
   "scripts": {
     "dev": "tsx watch src/server.ts",
