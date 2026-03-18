@@ -87,9 +87,10 @@ function renderSessionCard(s) {
   const metaHtml = `<div class="session-meta" data-started="${s.startedAt}">${metaParts.join(' · ')}</div>`;
 
   const sourceBadge = s.source === 'pty' ? '<span class="badge badge-pty">PTY</span>' : '';
+  const colorAttr = s.color ? ` data-color="${s.color}"` : '';
 
   return `
-    <div class="session-card${selected}" data-session-id="${s.sessionId}">
+    <div class="session-card${selected}"${colorAttr} data-session-id="${s.sessionId}">
       <div class="top-row">
         <span class="project-name">
           <span class="status-dot ${s.status}"></span>${icon}

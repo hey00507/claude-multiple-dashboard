@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { Session, SessionStatus, HookInput } from '../types.js';
-import { SESSIONS_DIR } from '../config.js';
+import { SESSIONS_DIR, getSessionDefault } from '../config.js';
 import { eventBus } from './event-bus.js';
 import { linkSessionToPty, findPtyBySessionId } from './pty-manager.js';
 
@@ -40,6 +40,26 @@ export function renameSession(sessionId: string, newName: string): Session | nul
   if (!session) return null;
   session.projectName = newName;
   session.customName = true;
+  saveSession(session);
+  return session;
+}
+
+const VALID_COLORS = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'];
+
+export function updateSession(sessionId: string, updates: { projectName?: string; color?: string | null }): Session | null {
+  const session = getSession(sessionId);
+  if (!session) return null;
+  if (updates.projectName) {
+    session.projectName = updates.projectName.trim();
+    session.customName = true;
+  }
+  if (updates.color !== undefined) {
+    if (updates.color === null || updates.color === '') {
+      delete session.color;
+    } else if (VALID_COLORS.includes(updates.color)) {
+      session.color = updates.color;
+    }
+  }
   saveSession(session);
   return session;
 }
@@ -87,6 +107,16 @@ export function cleanEndedSessions(maxAgeMs = 24 * 60 * 60 * 1000): { deleted: n
   }
 
   return { deleted };
+}
+
+/** Mark a session as disconnected (process not found, pending confirmation) */
+export function setSessionDisconnected(sessionId: string): boolean {
+  const session = getSession(sessionId);
+  if (!session || session.status === 'ended' || session.status === 'disconnected') return false;
+  session.status = 'disconnected';
+  session.idleSince = null;
+  saveSession(session);
+  return true;
 }
 
 /** Mark PTY sessions as ended if their PTY process no longer exists (e.g. after server restart) */
@@ -185,7 +215,16 @@ export function handleEvent(input: HookInput): Session {
       session.status = 'active';
       session.idleSince = null;
       session.cwd = input.cwd;
-      if (!session.customName) session.projectName = extractProjectName(input.cwd);
+      if (!session.customName) {
+        // Apply sessionDefaults if cwd matches
+        const defaults = getSessionDefault(input.cwd);
+        if (defaults) {
+          if (defaults.name) { session.projectName = defaults.name; session.customName = true; }
+          if (defaults.color) session.color = defaults.color;
+        } else {
+          session.projectName = extractProjectName(input.cwd);
+        }
+      }
       if (input.transcript_path) session.transcriptPath = input.transcript_path;
       // Try to link this session to a PTY
       if (!session.source) {

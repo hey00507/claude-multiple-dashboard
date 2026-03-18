@@ -3,6 +3,8 @@
  * Each cell has its own xterm.js instance + WebSocket connection
  */
 
+import { state } from './state.js';
+
 const gridView = document.getElementById('terminal-grid-view');
 const gridContainer = document.getElementById('terminal-grid');
 const gridCount = document.getElementById('terminal-grid-count');
@@ -11,24 +13,22 @@ const mainLayout = document.getElementById('main-layout');
 /** @type {Map<string, {terminal: Terminal, fitAddon: FitAddon, ws: WebSocket|null, resizeObs: ResizeObserver, ptyId: string}>} */
 const cells = new Map();
 
-let visible = false;
-
 export function isGridVisible() {
-  return visible;
+  return state.gridVisible;
 }
 
 export function showGrid() {
-  visible = true;
+  state.gridVisible = true;
   gridView.removeAttribute('hidden');
   mainLayout.setAttribute('hidden', '');
   refreshGrid();
 }
 
 export function hideGrid() {
-  visible = false;
+  state.gridVisible = false;
   gridView.setAttribute('hidden', '');
   mainLayout.removeAttribute('hidden');
-  // Pause all WS but keep cells alive
+  // Close all WS and cancel pending reconnects
   for (const [, cell] of cells) {
     if (cell.ws) {
       cell.ws.onclose = null;
@@ -50,7 +50,7 @@ export function destroyGrid() {
 
 /** Fetch active PTY sessions and render grid */
 export async function refreshGrid() {
-  if (!visible) return;
+  if (!state.gridVisible) return;
 
   const res = await fetch('/api/sessions');
   if (!res.ok) return;
@@ -152,7 +152,7 @@ function addCell(session) {
 
   // Resize observer
   const resizeObs = new ResizeObserver(() => {
-    if (!visible) return;
+    if (!state.gridVisible) return;
     try {
       fitAddon.fit();
       const cell = cells.get(ptyId);
@@ -172,7 +172,7 @@ function addCell(session) {
 
 function connectCell(ptyId) {
   const cell = cells.get(ptyId);
-  if (!cell || !visible) return;
+  if (!cell || !state.gridVisible) return;
 
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const ws = new WebSocket(`${protocol}//${location.host}/ws/terminal/${ptyId}`);
@@ -205,7 +205,7 @@ function connectCell(ptyId) {
   ws.onclose = () => {
     const c = cells.get(ptyId);
     // Auto reconnect only if not dead
-    if (visible && c && !c._dead) {
+    if (state.gridVisible && c && !c._dead) {
       setTimeout(() => connectCell(ptyId), 2000);
     }
   };

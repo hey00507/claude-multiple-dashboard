@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.4.0 (2026-03-17)
+
+### New Features
+- **Browser Terminal**: Run Claude Code sessions directly in the dashboard via `node-pty` + `xterm.js`
+- **PTY Manager**: Full PTY lifecycle — spawn, resize, kill, scrollback buffer (5000 chunks), DA1/Kitty protocol auto-response
+- **WebSocket Bridge**: `GET /ws/terminal/:ptyId` — real-time PTY I/O with auto-reconnect (2s interval)
+- **Terminal Grid View**: View all active PTY sessions simultaneously in a responsive grid (1/2/3 columns)
+- **Session Launch Modal**: Choose between PTY (browser) or external terminal (Ghostty, iTerm2, Warp, Alacritty, Terminal.app)
+- **Session Cleanup**: Bulk-end sessions with no running process
+- **Force Terminate**: End session even when process is not found, with toast feedback
+
+### Bug Fixes
+- **Server self-termination**: `grep claude` matched `claude-dash` itself → fixed with `comm` field exact match + self-PID exclusion
+- **PTY connection failure**: `~/` not expanded by node-pty + PTY lost on server restart → `expandHome()` + auto-cleanup on start
+- **Dashboard rendering broken**: Missing `<main>` tag + CSS `display:flex` overriding `hidden` → `[hidden]` selector + `!important`
+- **Terminal input not working**: Claude Code DA1/Kitty keyboard protocol queries unanswered → automatic DA1/DA2/Kitty responses in PTY manager
+- **Active sessions showing as ended**: `lsof -p` returning system-wide cwd on macOS → conservative strategy (keep alive if any claude process exists)
+
+### Tests
+- Added `pty-manager.test.ts` with 13 test cases (55 total, up from 41)
+
 ## v0.3.1 (2026-03-17)
 
 ### New Features

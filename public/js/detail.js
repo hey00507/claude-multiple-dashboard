@@ -48,8 +48,10 @@ export async function openDetail(sessionId) {
   if (ptyId) {
     state.activePtyId = ptyId;
     enableTerminalTab();
-    // If already connected to this PTY, just resume; otherwise connect
-    if (getCurrentPtyId() === ptyId) {
+    // If grid is active, show terminal tab but don't connect (grid owns WS)
+    if (state.gridVisible) {
+      switchTab('terminal');
+    } else if (getCurrentPtyId() === ptyId) {
       switchTab('terminal');
       resumeTerminal();
     } else {
@@ -103,7 +105,10 @@ export function switchTab(tabName) {
     if (!terminalContainer.querySelector('.xterm')) {
       initTerminal(terminalContainer);
     }
-    connectTerminal(state.activePtyId);
+    // Don't connect while grid is active — grid owns all WS connections
+    if (!state.gridVisible) {
+      connectTerminal(state.activePtyId);
+    }
     requestAnimationFrame(() => fitTerminal());
   } else if (tabName === 'timeline') {
     // Just pause WS when switching to timeline — don't kill the connection

@@ -33,7 +33,18 @@ This dashboard puts all sessions on one screen with real-time status, idle time 
 | **Session Pinning** | Pin important sessions to the top |
 | **Dark/Light Theme** | Auto-detects system preference + manual toggle |
 | **Keyboard Shortcuts** | j/k navigate, / search, Enter fullview, ? help |
+| **Browser Terminal** | Run Claude Code directly in the dashboard via xterm.js + node-pty |
+| **Terminal Grid** | View all PTY sessions simultaneously in a responsive grid |
+| **Session Colors** | Color-coded session cards via `/session-setting` integration |
 | **Data Export** | History as JSON/CSV + session transcript as Markdown |
+
+### Session Colors & Multi-Session Monitoring
+
+![Session Colors](docs/screenshots/session-colors.png)
+
+### Multiple Terminal Sessions
+
+![Terminal Sessions](docs/screenshots/terminal-sessions.png)
 
 ### Dark Mode + Detail Panel
 
@@ -120,6 +131,8 @@ dashboard-hook.sh (non-blocking, 1s timeout)
 Dashboard Server (Fastify 5)
     ├── REST API (session/log CRUD + stats)
     ├── SSE Stream (real-time updates)
+    ├── WebSocket (/ws/terminal/:ptyId)
+    ├── PTY Manager (node-pty)
     └── Static Files (web dashboard)
          │
          ├── sessions/*.json    (session metadata)
@@ -144,9 +157,10 @@ Web Dashboard (browser, Vanilla JS ES Modules)
 | Language | TypeScript (strict) |
 | Server | Fastify 5 |
 | Frontend | Vanilla JS (ES Modules, no build tools) |
-| Real-time | SSE (Server-Sent Events) |
+| Real-time | SSE + WebSocket (terminal) |
+| Terminal | node-pty + xterm.js (CDN v5) |
 | Storage | Local filesystem (JSON + JSONL + gzip) |
-| Test | Vitest (41 tests) |
+| Test | Vitest (79 tests) |
 | CLI | Commander |
 
 ---

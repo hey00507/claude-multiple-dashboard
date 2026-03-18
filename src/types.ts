@@ -22,6 +22,7 @@ export interface Session {
   endReason: string | null;
   totalEvents: number;
   pinned?: boolean;
+  color?: string;
   transcriptPath?: string;
   source?: 'hook' | 'pty';
   ptyId?: string;

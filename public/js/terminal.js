@@ -1,3 +1,5 @@
+import { state } from './state.js';
+
 /** @type {Terminal | null} */
 let terminal = null;
 /** @type {WebSocket | null} */
@@ -58,6 +60,9 @@ export function initTerminal(container) {
 }
 
 export function connectTerminal(ptyId) {
+  // Don't connect while grid is active — grid owns all WS connections
+  if (state.gridVisible) return;
+
   // Already connected to this PTY
   if (currentPtyId === ptyId && ws && ws.readyState === WebSocket.OPEN) return;
 
@@ -85,7 +90,7 @@ export function connectTerminal(ptyId) {
 }
 
 function doConnect(ptyId) {
-  if (userDisconnected || processExited) return;
+  if (userDisconnected || processExited || state.gridVisible) return;
 
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const url = `${protocol}//${location.host}/ws/terminal/${ptyId}`;
@@ -151,6 +156,7 @@ export function pauseTerminal() {
 /** Resume connection after pause */
 export function resumeTerminal() {
   if (!currentPtyId || processExited || userDisconnected) return;
+  if (state.gridVisible) return; // Grid owns WS connections
   if (ws && ws.readyState === WebSocket.OPEN) return;
   doConnect(currentPtyId);
 }

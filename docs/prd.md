@@ -1,7 +1,7 @@
 # Claude Multiple Dashboard — PRD
 
-> 최종 업데이트: 2026-03-17
-> 상태: Phase 1~3 완료 (v0.2.1), Phase 4 진행 중 (v0.3.0)
+> 최종 업데이트: 2026-03-18
+> 상태: Phase 1~5 구현 완료 (v0.4.0), 안정화 진행 중
 
 ## 1. 개요
 
@@ -30,13 +30,15 @@ dashboard-hook.sh
 Dashboard Server (Fastify 5, Node.js)
     ├── REST API (세션/로그 CRUD)
     ├── SSE Stream (session_update, log_update)
+    ├── WebSocket (/ws/terminal/:ptyId)
+    ├── PTY Manager (node-pty)
     └── Static File Server (public/)
          │
          ├── sessions/*.json   (세션 메타데이터)
          └── logs/YYYY-MM-DD/  (이벤트 로그 JSONL)
-              │  SSE
+              │  SSE + WebSocket
               ▼
-Web Dashboard (브라우저)
+Web Dashboard (브라우저, xterm.js)
 ```
 
 **핵심 설계 원칙:**
@@ -137,6 +139,7 @@ interface Session {
   cwd: string;
   projectName: string;       // 기본: path.basename(cwd), 사용자 커스텀 가능
   customName: boolean;        // true면 SessionStart로 덮어쓰이지 않음
+  color?: string;             // 세션 카드 색상 (red/green/yellow/blue/magenta/cyan/white)
   status: SessionStatus;
   startedAt: string;
   lastActivityAt: string;
@@ -198,6 +201,11 @@ interface LogEvent {
 | `GET` | `/api/logs` | 로그 조회 (query: `?date=`, `?sessionId=`, `?limit=`, `?offset=`) |
 | `DELETE` | `/api/logs` | 로그 삭제 (query: `?before=YYYY-MM-DD`) |
 | `GET` | `/api/events/stream` | SSE 스트림 (`session_update`, `log_update` 이벤트) |
+| `POST` | `/api/sessions/launch` | 새 세션 시작 (PTY 브라우저 / 외부 터미널 선택) |
+| `POST` | `/api/sessions/:id/kill` | 세션 종료 (SIGTERM → ended 처리) |
+| `POST` | `/api/sessions/:id/pin` | 세션 즐겨찾기/핀 토글 |
+| `GET` | `/api/stats` | 일별 통계 (이벤트/프롬프트/도구 Top 10) |
+| `WS` | `/ws/terminal/:ptyId` | PTY WebSocket (input/resize → output/exit) |
 
 ---
 
@@ -288,18 +296,30 @@ claude-multiple-dashboard/
 │       ├── session-store.ts     # 세션 CRUD + 상태 전이 + rename
 │       ├── log-store.ts         # JSONL append/read/delete + SSE broadcast
 │       ├── event-bus.ts         # EventEmitter (session_update, log_update)
-│       └── process-scanner.ts   # 30s 간격 프로세스 생존 확인
+│       ├── process-scanner.ts   # 30s 간격 프로세스 생존 확인
+│       └── pty-manager.ts       # PTY 생성/관리 (node-pty + WebSocket 브릿지)
 ├── public/
-│   ├── index.html               # 대시보드 HTML (모달 포함)
-│   ├── app.js                   # 메인 JS (Vanilla, ES Module)
-│   └── styles/main.css          # 다크 테마 CSS
+│   ├── index.html               # 대시보드 HTML (xterm.js CDN, 런치 모달)
+│   ├── app.js                   # 메인 JS (ES Module import)
+│   ├── js/                      # ES Modules
+│   │   ├── state.js             # 전역 상태
+│   │   ├── sessions.js          # 세션 카드/그룹 렌더링
+│   │   ├── history.js           # 히스토리 탭
+│   │   ├── detail.js            # 세션 상세 패널
+│   │   ├── terminal.js          # 단일 터미널 (상세 패널 탭)
+│   │   ├── terminal-grid.js     # 멀티 터미널 그리드 뷰
+│   │   ├── sse.js               # SSE 클라이언트
+│   │   ├── theme.js             # 다크/라이트 테마
+│   │   └── utils.js             # 유틸리티
+│   └── styles/main.css          # 다크/라이트 테마 CSS
 ├── hooks/
 │   └── dashboard-hook.sh        # init 시 ~/.claude/hooks/ 에 복사
 ├── tests/
 │   ├── session-store.test.ts    # 상태 전이 테스트
 │   ├── log-store.test.ts        # JSONL read/write 테스트
 │   ├── event-bus.test.ts        # 브로드캐스트 테스트
-│   └── api.test.ts              # Fastify inject 통합 테스트
+│   ├── api.test.ts              # Fastify inject 통합 테스트
+│   └── pty-manager.test.ts      # PTY 생성/관리 테스트
 ├── docs/
 │   ├── prd.md                   # 이 문서
 │   └── todo.md                  # 작업 추적
@@ -316,6 +336,29 @@ claude-multiple-dashboard/
 - Phase 1: 데이터 수집 인프라 + 테스트 (35개)
 - Phase 2: 웹 대시보드 완성 (세션 상세, 히스토리, UI)
 - Phase 3: 안정화 & 고도화 (clean CLI, 검색, 키보드, 알림, 세션 관리, npm 배포)
+
+### Phase 4 완료 (v0.3.0)
+
+- 데이터 내보내기 (JSON/CSV), 세션+로그 통합 삭제, 프로젝트 그룹핑
+- 다크/라이트 테마, Enter 풀뷰, 통계 대시보드, app.js 모듈 분리
+- 테스트 41개
+
+### Phase 5 구현 완료 (v0.4.0, 안정화 진행 중)
+
+- 브라우저 터미널: node-pty + @fastify/websocket + xterm.js (CDN)
+- PTY 매니저: 세션 생성/종료, scrollback, DA1/Kitty 프로토콜 자동 응답
+- 터미널 그리드 뷰: 다중 PTY 동시 표시
+- 세션 런치 모달: PTY (브라우저) / 외부 터미널 선택
+- 세션 정리, 강제 종료, toast 피드백
+- 테스트 55개
+
+### v0.4.0 안정화 (2026-03-18)
+
+- 외부 터미널 세션 상태 정확도: PID 수 비교 + transcript mtime 랭킹 + disconnected 유예
+- PTY ↔ 그리드 전환 이중연결 방지: state.gridVisible 기반 상호배제
+- 세션 색상 지원: Session.color 필드, PATCH API, CSS data-color 틴트
+- /session-setting 연동: 스킬에서 대시보드 세션 파일 직접 원자적 업데이트
+- 테스트 66개
 
 ---
 
@@ -371,7 +414,44 @@ claude-multiple-dashboard/
 
 ---
 
-## 11. 기술 스택
+## 11. Phase 6: 세션 프리셋 & 자동화 — v0.5.0 (계획)
+
+### 6-1. 프로젝트별 세션 기본값 (sessionDefaults)
+
+config.json에 cwd→{name, color} 매핑을 저장하여, 해당 디렉토리에서 세션 시작 시 자동으로 이름과 색상을 적용한다.
+
+```json
+// ~/.claude-dashboard/config.json
+{
+  "sessionDefaults": {
+    "/Users/ethankim/claude-multiple-dashboard": { "name": "대시보드", "color": "red" },
+    "/Users/ethankim/WebstormProjects/CloudPocket": { "name": "CloudPocket", "color": "blue" }
+  }
+}
+```
+
+**적용 규칙:**
+- SessionStart 이벤트 수신 시, cwd가 sessionDefaults에 매칭되면 name/color 자동 적용
+- `~/` (홈 디렉토리) 같은 범용 경로는 매칭에서 제외 (여러 세션이 같은 cwd를 가지므로)
+- customName=true인 기존 세션은 덮어쓰지 않음
+
+### 6-2. /session-setting 확장
+
+| 명령 | 동작 |
+|------|------|
+| `/session-setting name:X color:Y` | 현재 세션에만 적용 (기존) |
+| `/session-setting name:X color:Y --save` | 현재 cwd를 config.json sessionDefaults에도 저장 |
+| `/session-setting --list` | 저장된 기본값 목록 조회 |
+| `/session-setting --remove` | 현재 cwd의 기본값 삭제 |
+
+### 6-3. 실시간 반영
+
+- 서버의 handleEvent에서 name/color 변경 시 eventBus.broadcast() → SSE로 프론트 즉시 갱신
+- statusline.sh도 sessionDefaults를 읽어서 터미널에 색상 반영 (서버 없이도 동작)
+
+---
+
+## 12. 기술 스택
 
 | 구성요소 | 기술 | 버전 |
 |----------|------|------|
@@ -382,7 +462,9 @@ claude-multiple-dashboard/
 | CLI | Commander | 14 |
 | Test | Vitest | 4 |
 | Dev Runner | tsx | latest |
-| Real-time | SSE (EventSource) | native |
+| Real-time | SSE (EventSource) + WebSocket | native |
+| Terminal | node-pty + xterm.js (CDN v5) | 1.1 / 5 |
+| WebSocket | @fastify/websocket | 11 |
 | Frontend | Vanilla JS (ES Module) | no build |
 | Storage | Local filesystem (JSON + JSONL) | — |
 | Hook Script | Bash + jq + curl | — |

@@ -13,6 +13,7 @@
 - **Server**: Fastify 5
 - **Static Files**: @fastify/static 9
 - **CLI**: Commander 14
+- **Terminal**: node-pty 1.1 + xterm.js 5 (CDN) + @fastify/websocket 11
 - **Dev**: tsx (watch mode), tsc (type check)
 
 ## Project Structure
@@ -26,13 +27,15 @@ src/
     sessions.ts          — GET/PATCH/DELETE /api/sessions
     logs.ts              — GET/DELETE /api/logs, GET /api/stats
     stream.ts            — GET /api/events/stream (SSE)
+    terminal.ts          — GET /ws/terminal/:ptyId (WebSocket)
   services/              — Business logic
     session-store.ts     — Session CRUD + state transitions
     log-store.ts         — JSONL log read/append/compress
     process-scanner.ts   — Process liveness check
     event-bus.ts         — SSE broadcast
+    pty-manager.ts       — PTY lifecycle (node-pty spawn/kill/resize/scrollback)
 public/                  — Web dashboard (Vanilla JS, no build)
-  js/                    — ES Modules (state, sessions, history, detail, sse, theme, utils)
+  js/                    — ES Modules (state, sessions, history, detail, terminal, terminal-grid, sse, theme, utils)
 bin/                     — CLI entrypoint
 hooks/                   — Claude Code hook script
 docs/                    — PRD, TODO, troubleshooting

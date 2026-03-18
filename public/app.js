@@ -5,6 +5,7 @@ import { fetchHistory, renderHistory, exportJSON, exportCSV, fetchStats, applyFi
 import { openDetail, closeDetail, closeModal, showModal, copyToClipboard, exportTranscript, deleteSessionFromPanel, killSession, launchSession, closeLaunchModal, renameSession, deleteAllInactiveSessions, updateTerminalTheme } from './js/detail.js';
 import { connectSSE, requestNotificationPermission } from './js/sse.js';
 import { showGrid, hideGrid, isGridVisible, refreshGrid } from './js/terminal-grid.js';
+import { pauseTerminal, resumeTerminal } from './js/terminal.js';
 import './js/theme.js';
 
 // --- DOM refs ---
@@ -108,9 +109,24 @@ document.getElementById('btn-cleanup').addEventListener('click', async () => {
 });
 document.getElementById('btn-new-session').addEventListener('click', launchSession);
 document.getElementById('btn-terminal-grid').addEventListener('click', () => {
-  if (isGridVisible()) { hideGrid(); } else { showGrid(); }
+  if (isGridVisible()) {
+    hideGrid();
+    // Resume detail terminal if it was paused for grid
+    if (state.activePtyId && state.activeTab === 'terminal') {
+      resumeTerminal();
+    }
+  } else {
+    // Pause detail terminal before showing grid to prevent double connections
+    pauseTerminal();
+    showGrid();
+  }
 });
-document.getElementById('btn-close-grid').addEventListener('click', hideGrid);
+document.getElementById('btn-close-grid').addEventListener('click', () => {
+  hideGrid();
+  if (state.activePtyId && state.activeTab === 'terminal') {
+    resumeTerminal();
+  }
+});
 document.getElementById('btn-grid-new-session').addEventListener('click', launchSession);
 document.getElementById('btn-export-json').addEventListener('click', exportJSON);
 document.getElementById('btn-export-csv').addEventListener('click', exportCSV);

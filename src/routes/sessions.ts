@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { execSync, exec } from 'child_process';
-import { getAllSessions, getSession, renameSession, deleteSession, handleEvent, togglePin } from '../services/session-store.js';
+import { getAllSessions, getSession, renameSession, updateSession, deleteSession, handleEvent, togglePin } from '../services/session-store.js';
 import { deleteLogsBySessionId } from '../services/log-store.js';
 import { createPty, findPtyBySessionId, getAllPtySessions, killPty } from '../services/pty-manager.js';
 import { scanAndClean } from '../services/process-scanner.js';
+import { getAllSessionDefaults, setSessionDefault, removeSessionDefault, isExcludedCwd } from '../config.js';
 import type { SessionStatus } from '../types.js';
 
 export async function sessionsRoute(app: FastifyInstance) {
@@ -24,12 +25,12 @@ export async function sessionsRoute(app: FastifyInstance) {
     return session;
   });
 
-  app.patch<{ Params: { sessionId: string }; Body: { projectName: string } }>('/api/sessions/:sessionId', async (request, reply) => {
-    const { projectName } = request.body;
-    if (!projectName || typeof projectName !== 'string') {
-      return reply.status(400).send({ error: 'projectName is required' });
+  app.patch<{ Params: { sessionId: string }; Body: { projectName?: string; color?: string | null } }>('/api/sessions/:sessionId', async (request, reply) => {
+    const { projectName, color } = request.body;
+    if (!projectName && color === undefined) {
+      return reply.status(400).send({ error: 'projectName or color is required' });
     }
-    const session = renameSession(request.params.sessionId, projectName.trim());
+    const session = updateSession(request.params.sessionId, { projectName, color });
     if (!session) return reply.status(404).send({ error: 'Session not found' });
     return session;
   });
@@ -206,5 +207,37 @@ export async function sessionsRoute(app: FastifyInstance) {
     const ptySession = findPtyBySessionId(request.params.sessionId);
     if (!ptySession) return reply.status(404).send({ error: 'No PTY session found' });
     return { ptyId: ptySession.ptyId, cwd: ptySession.cwd, createdAt: ptySession.createdAt };
+  });
+
+  // --- Session Defaults (presets) ---
+
+  app.get('/api/session-defaults', async () => {
+    return getAllSessionDefaults();
+  });
+
+  app.put<{ Body: { cwd: string; name?: string; color?: string } }>('/api/session-defaults', async (request, reply) => {
+    const { cwd, name, color } = request.body;
+    if (!cwd || typeof cwd !== 'string') {
+      return reply.status(400).send({ error: 'cwd is required' });
+    }
+    if (isExcludedCwd(cwd)) {
+      return reply.status(400).send({ error: `Cannot set defaults for generic path: ${cwd}` });
+    }
+    if (!name && !color) {
+      return reply.status(400).send({ error: 'name or color is required' });
+    }
+    const defaults: Record<string, string> = {};
+    if (name) defaults.name = name.trim();
+    if (color) defaults.color = color;
+    setSessionDefault(cwd, defaults);
+    return { ok: true, cwd, ...defaults };
+  });
+
+  app.delete<{ Body: { cwd: string } }>('/api/session-defaults', async (request, reply) => {
+    const { cwd } = request.body;
+    if (!cwd) return reply.status(400).send({ error: 'cwd is required' });
+    const removed = removeSessionDefault(cwd);
+    if (!removed) return reply.status(404).send({ error: 'No defaults found for this cwd' });
+    return { ok: true, cwd };
   });
 }

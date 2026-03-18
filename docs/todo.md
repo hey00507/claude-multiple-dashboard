@@ -15,7 +15,7 @@
 - [x] 로그 조회 API (GET /api/logs)
 - [x] 프로세스 스캐너 기본 구현
 - [x] CLI (init, start, stop, status, open)
-- [x] Vitest 테스트 35개 (session-store, log-store, event-bus, API)
+- [x] Vitest 테스트 35개 → 55개 (session-store, log-store, event-bus, API, pty-manager)
 - [x] E2E 검증 (실제 Claude Code 세션 이벤트 수신 확인)
 
 ### 추가 구현 완료 ✅
@@ -128,25 +128,41 @@
 
 대시보드 안에서 Claude Code 세션을 직접 실행하고 상호작용하는 핵심 기능.
 
-### 5-1. 터미널 백엔드
-- [ ] `node-pty` + `@fastify/websocket` 의존성 추가
-- [ ] WebSocket 엔드포인트 (`/ws/terminal/:sessionId`)
-- [ ] PTY 생성/관리 서비스 (`pty-manager.ts`)
-  - spawn `claude` 프로세스, PTY ↔ WebSocket 브릿지
-  - 세션 종료 시 PTY 정리
-- [ ] 기존 "새 세션" API를 PTY 기반으로 전환
+### 5-1. 터미널 백엔드 ✅
+- [x] `node-pty` ^1.1.0 + `@fastify/websocket` ^11.2.0 의존성 추가
+- [x] WebSocket 엔드포인트 (`GET /ws/terminal/:ptyId`)
+- [x] PTY 생성/관리 서비스 (`pty-manager.ts`)
+  - spawn `claude` 프로세스 (login shell), PTY ↔ WebSocket 브릿지
+  - 세션 종료 시 PTY 정리 (30s linger + 자동 cleanup)
+  - DA1/DA2/Kitty keyboard protocol 자동 응답
+  - scrollback buffer (MAX_SCROLLBACK 5000 chunks)
+  - `linkSessionToPty` — hook session_id ↔ PTY cwd 매칭
+- [x] 세션 런치 모달 — PTY (브라우저) vs 외부 터미널 (Ghostty, iTerm2, Warp, Alacritty) 선택
 
-### 5-2. 터미널 프론트엔드
-- [ ] `xterm.js` + `xterm-addon-fit` 통합 (CDN 또는 vendor)
-- [ ] 상세 패널에 "타임라인 / 터미널" 탭 전환 UI
-- [ ] 터미널 크기 자동 조정 (fit addon + resize 이벤트)
-- [ ] 연결 끊김 시 재연결 + 상태 표시
+### 5-2. 터미널 프론트엔드 ✅
+- [x] `xterm.js` v5 + `xterm-addon-fit` 통합 (CDN)
+- [x] 상세 패널에 "타임라인 / 터미널" 탭 전환 UI + 연결 상태 표시
+- [x] 터미널 크기 자동 조정 (fit addon + resize 이벤트)
+- [x] 연결 끊김 시 자동 재연결 (2s 간격) + 상태 표시 (한국어)
 
-### 5-3. 멀티 터미널
-- [ ] 탭으로 여러 세션 터미널 동시 전환
-- [ ] 비활성 탭은 백그라운드 유지 (PTY 살아있음)
+### 5-3. 멀티 터미널 ✅
+- [x] 터미널 그리드 뷰 — 전체 PTY 세션을 동시에 표시 (1→1col, 2~4→2col, 5+→3col)
+- [x] 각 셀 독립 xterm.js 인스턴스 + WebSocket 연결
+- [x] 비활성 PTY 백그라운드 유지
 
-### 5-4. 보안
+### 5-4. 추가 구현 ✅
+- [x] 세션 정리 버튼 — 프로세스 없는 세션 일괄 종료
+- [x] 강제 종료 — 프로세스 못 찾아도 ended 처리 + toast 피드백
+- [x] Session 타입에 `source: 'hook' | 'pty'`, `ptyId` 필드 추가
+
+### 5-5. 안정화 ✅
+- [x] PTY ↔ 그리드 전환 시 xterm 이중연결 방지
+- [x] 외부 터미널 세션 상태 표시 정확도 개선
+- [x] 세션 색상 지원 (Session.color, PATCH API, CSS data-color 틴트)
+- [x] /session-setting 스킬 연동 (대시보드 세션 파일 원자적 업데이트)
+- [ ] 전체 E2E 테스트 보강
+
+### 5-6. 보안 (미구현)
 - [ ] API Key 인증 (config.json에 설정, 헤더/쿠키로 검증)
 - [ ] localhost 외 접근 시 인증 필수 강제
 - [ ] WebSocket 연결 시 인증 검증
@@ -178,7 +194,29 @@
 
 ---
 
-## Phase 8: CLI 확장
+## Phase 8: 세션 프리셋 & 자동화 — v0.5.0
+
+### 8-1. 프로젝트별 세션 기본값 (sessionDefaults) ✅
+- [x] config.json에 `sessionDefaults` 매핑 구조 추가
+- [x] SessionStart 이벤트 처리 시 cwd→sessionDefaults 매칭하여 name/color 자동 적용
+- [x] 홈 디렉토리(`~/`) 같은 범용 경로 매칭 제외 로직
+- [x] customName=true인 기존 세션은 덮어쓰지 않음
+- [x] REST API: GET/PUT/DELETE /api/session-defaults
+
+### 8-2. /session-setting 확장 ✅
+- [x] `--save` 플래그: 현재 cwd를 config.json sessionDefaults에 저장
+- [x] `--list` 플래그: 저장된 기본값 목록 조회
+- [x] `--remove` 플래그: 현재 cwd의 기본값 삭제
+- [x] 색상 검증: 허용되지 않는 색상 거부
+- [x] 환경변수 전달 방식으로 따옴표 안전성 보장
+
+### 8-3. 실시간 반영 ✅
+- [x] statusline.sh 3-tier fallback: /tmp → 대시보드 세션 JSON → config.json sessionDefaults
+- [x] Tier 2에서 /tmp 파일 자가 복구 (다음 호출부터 빠른 경로)
+
+---
+
+## Phase 9: CLI 확장
 
 - [ ] `claude-dash tail [sessionId]` — 터미널에서 세션 실시간 모니터링
 - [ ] `claude-dash config get/set` — CLI에서 설정 조회/변경
