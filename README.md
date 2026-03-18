@@ -119,6 +119,33 @@ git pull && npm install && npm run build
 
 ---
 
+## Session Presets & Colors
+
+Name and color your sessions for quick identification. Colors are applied as tinted backgrounds on session cards.
+
+### `/session-setting` Skill (Claude Code)
+
+Copy the skill to your Claude Code commands directory:
+
+```bash
+cp commands/session-setting.md ~/.claude/commands/
+```
+
+Then use it in any Claude Code session:
+
+```bash
+/session-setting name:Dashboard color:red           # Current session only
+/session-setting name:Dashboard color:red --save     # + Save as default for this project
+/session-setting --list                              # List saved defaults
+/session-setting --remove                            # Remove default for current directory
+```
+
+Supported colors: `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
+
+**Project defaults** are saved in `~/.claude-dashboard/config.json` and automatically applied when a new session starts in the same directory.
+
+---
+
 ## Architecture
 
 ```

@@ -117,6 +117,33 @@ git pull && npm install && npm run build
 
 ---
 
+## 세션 프리셋 & 색상
+
+세션에 이름과 색상을 부여하여 빠르게 구분할 수 있습니다. 색상은 세션 카드 배경에 틴트로 적용됩니다.
+
+### `/session-setting` 스킬 (Claude Code)
+
+스킬 파일을 Claude Code 명령어 디렉토리에 복사합니다:
+
+```bash
+cp commands/session-setting.md ~/.claude/commands/
+```
+
+Claude Code 세션에서 사용:
+
+```bash
+/session-setting name:대시보드 color:red             # 현재 세션만
+/session-setting name:대시보드 color:red --save       # + 이 프로젝트 기본값으로 저장
+/session-setting --list                              # 저장된 기본값 목록
+/session-setting --remove                            # 현재 디렉토리 기본값 삭제
+```
+
+지원 색상: `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
+
+**프로젝트 기본값**은 `~/.claude-dashboard/config.json`에 저장되며, 같은 디렉토리에서 새 세션 시작 시 자동 적용됩니다.
+
+---
+
 ## 아키텍처
 
 ```
