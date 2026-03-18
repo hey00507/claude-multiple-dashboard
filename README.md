@@ -4,19 +4,28 @@
 
 A real-time web dashboard for monitoring **multiple Claude Code sessions** in parallel.
 
-![Light Mode Overview](docs/screenshots/light-overview.png)
-
 ---
 
-## Why?
+## The Problem
 
-When running 3-5 Claude Code sessions simultaneously across different projects:
+When running 3-5 Claude Code sessions simultaneously, every terminal looks the same — same header, same prompt. You can't tell which session is which without switching into each one.
 
-- Hard to tell which session is **waiting for input**
-- Sessions sit **idle for minutes** without notice
-- No way to track **what each session has been doing**
+![All sessions look identical](docs/screenshots/problem-no-labels.png)
 
-This dashboard puts all sessions on one screen with real-time status, idle time tracking, and full activity history.
+## The Solution
+
+This dashboard puts all sessions on one screen with real-time status, idle time tracking, session colors, and full activity history.
+
+![Dashboard with session colors](docs/screenshots/session-colors.png)
+
+Name your sessions with `/session-setting` and the colors show up in both the terminal statusline and the dashboard:
+
+```bash
+/session-setting name:Dashboard color:red
+/session-setting name:CloudPocket color:blue
+```
+
+![Terminal sessions with names](docs/screenshots/terminal-sessions.png)
 
 ---
 
@@ -25,26 +34,18 @@ This dashboard puts all sessions on one screen with real-time status, idle time 
 | Feature | Description |
 |---------|-------------|
 | **Real-time Monitoring** | 🟢 Active / 🟡 Waiting Input / 🟠 Waiting Permission / ⚪ Ended / 🔴 Disconnected |
-| **Model & Context** | Model name, context usage (ctx: N%), elapsed time on each session card |
+| **Session Colors** | Color-coded session cards — name and color your sessions for instant recognition |
 | **Idle Time Counter** | Live `⏱ idle MM:SS` from the moment a session starts waiting |
-| **Prompt & Response** | View user prompts and Claude's last response directly on the dashboard |
-| **Stats Dashboard** | Event/prompt/response counts + top 10 tool usage chart + hourly activity heatmap |
-| **Project Grouping** | Sessions in the same directory are automatically grouped |
-| **Session Pinning** | Pin important sessions to the top |
-| **Dark/Light Theme** | Auto-detects system preference + manual toggle |
-| **Keyboard Shortcuts** | j/k navigate, / search, Enter fullview, ? help |
+| **Model & Context** | Model name, context usage (ctx: N%), elapsed time on each card |
 | **Browser Terminal** | Run Claude Code directly in the dashboard via xterm.js + node-pty |
 | **Terminal Grid** | View all PTY sessions simultaneously in a responsive grid |
-| **Session Colors** | Color-coded session cards via `/session-setting` integration |
+| **Stats Dashboard** | Event/prompt/response counts + top 10 tool usage chart + hourly activity heatmap |
+| **Project Grouping** | Sessions in the same directory are automatically grouped |
+| **Session Presets** | Save name/color per project directory — auto-applied on next session |
+| **Prompt & Response** | View user prompts and Claude's last response directly on the dashboard |
+| **Dark/Light Theme** | Auto-detects system preference + manual toggle |
+| **Keyboard Shortcuts** | j/k navigate, / search, Enter fullview, ? help |
 | **Data Export** | History as JSON/CSV + session transcript as Markdown |
-
-### Session Colors & Multi-Session Monitoring
-
-![Session Colors](docs/screenshots/session-colors.png)
-
-### Multiple Terminal Sessions
-
-![Terminal Sessions](docs/screenshots/terminal-sessions.png)
 
 ### Dark Mode + Detail Panel
 
@@ -121,9 +122,9 @@ git pull && npm install && npm run build
 
 ## Session Presets & Colors
 
-Name and color your sessions for quick identification. Colors are applied as tinted backgrounds on session cards.
+Name and color your sessions for quick identification. Colors show up in both the terminal statusline and the dashboard.
 
-### `/session-setting` Skill (Claude Code)
+### Setup
 
 Copy the skill to your Claude Code commands directory:
 
@@ -131,7 +132,7 @@ Copy the skill to your Claude Code commands directory:
 cp commands/session-setting.md ~/.claude/commands/
 ```
 
-Then use it in any Claude Code session:
+### Usage
 
 ```bash
 /session-setting name:Dashboard color:red           # Current session only
@@ -142,7 +143,7 @@ Then use it in any Claude Code session:
 
 Supported colors: `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
 
-**Project defaults** are saved in `~/.claude-dashboard/config.json` and automatically applied when a new session starts in the same directory.
+**Project defaults** are saved in `~/.claude-dashboard/config.json` and automatically applied when a new session starts in the same directory. Generic paths like `~/` are excluded from matching.
 
 ---
 
@@ -164,8 +165,8 @@ Dashboard Server (Fastify 5)
          │
          ├── sessions/*.json    (session metadata)
          ├── logs/YYYY-MM-DD/   (JSONL, auto .gz after 30 days)
-         └── config.json
-              │  SSE
+         └── config.json        (session presets)
+              │  SSE + WebSocket
               ▼
 Web Dashboard (browser, Vanilla JS ES Modules)
 ```
@@ -173,6 +174,7 @@ Web Dashboard (browser, Vanilla JS ES Modules)
 - **Zero impact** on Claude Code even if server is down
 - Data stored on **local filesystem** (no database required)
 - Logs older than 30 days are **auto-compressed** to gzip
+- Session names survive context compaction via **3-tier fallback** (/tmp → session JSON → config defaults)
 
 ---
 
@@ -247,6 +249,13 @@ npm test             # Run Vitest tests
 npx tsc --noEmit     # Type check
 npm run build        # TypeScript build
 ```
+
+---
+
+## Blog Posts
+
+- [Claude Multiple Dashboard — 멀티 세션 관제탑 만들기](https://hey00507.github.io/posts/dev/claude-dashboard) (v0.3.0)
+- [Claude Dashboard v0.4.0 — 세션 프리셋과 3-tier Fallback](https://hey00507.github.io/posts/dev/dashboard-v040-presets) (v0.4.0)
 
 ---
 
