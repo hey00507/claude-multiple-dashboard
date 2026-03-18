@@ -174,6 +174,53 @@ Web Dashboard (브라우저, Vanilla JS ES Modules)
 
 ---
 
+## API 레퍼런스
+
+### 이벤트
+
+| Method | Endpoint | 설명 | 응답 |
+|--------|----------|------|------|
+| `POST` | `/api/events` | Claude Code hook 이벤트 수신 | `{ ok, sessionId, status }` |
+
+### 세션
+
+| Method | Endpoint | 설명 | 응답 |
+|--------|----------|------|------|
+| `GET` | `/api/sessions` | 세션 목록 (`?status=active,waiting_input`) | `Session[]` |
+| `GET` | `/api/sessions/:id` | 세션 상세 | `Session` |
+| `PATCH` | `/api/sessions/:id` | 이름/색상 변경 (`{ projectName?, color? }`) | `Session` |
+| `POST` | `/api/sessions/:id/kill` | 세션 종료 (SIGTERM 또는 강제) | `{ ok, method }` |
+| `POST` | `/api/sessions/:id/pin` | 핀 토글 | `Session` |
+| `DELETE` | `/api/sessions/:id` | 세션 + 로그 삭제 | `{ ok, logsDeleted }` |
+| `DELETE` | `/api/sessions` | 비활성 세션 일괄 삭제 | `{ ok, deletedSessions, deletedLogs }` |
+| `POST` | `/api/sessions/launch` | 새 세션 시작 (`{ cwd, mode, terminalApp? }`) | `{ ok, ptyId?, mode }` |
+| `POST` | `/api/sessions/cleanup` | 비활성 세션 정리 | `{ ok, checked, ended, disconnected }` |
+
+### 세션 기본값 (프리셋)
+
+| Method | Endpoint | 설명 | 응답 |
+|--------|----------|------|------|
+| `GET` | `/api/session-defaults` | 프로젝트별 기본값 목록 | `{ cwd: { name?, color? } }` |
+| `PUT` | `/api/session-defaults` | 기본값 저장 (`{ cwd, name?, color? }`) | `{ ok, cwd, name?, color? }` |
+| `DELETE` | `/api/session-defaults` | 기본값 삭제 (`{ cwd }`) | `{ ok, cwd }` |
+
+### 로그 & 통계
+
+| Method | Endpoint | 설명 | 응답 |
+|--------|----------|------|------|
+| `GET` | `/api/logs` | 로그 조회 (`?date=&sessionId=&search=&limit=&offset=`) | `LogEvent[]` |
+| `DELETE` | `/api/logs` | 로그 삭제 (`?before=YYYY-MM-DD`) | `{ ok, deleted }` |
+| `GET` | `/api/stats` | 일별 통계 (`?date=`) | `{ totalEvents, prompts, responses, sessions, tools, avgIdleMs }` |
+
+### 실시간
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| `GET` | `/api/events/stream` | SSE 스트림 (`session_update`, `log_update`) |
+| `WS` | `/ws/terminal/:ptyId` | 터미널 WebSocket (input/resize → output/exit) |
+
+---
+
 ## 기술 스택
 
 | 구성요소 | 기술 |
@@ -185,7 +232,7 @@ Web Dashboard (브라우저, Vanilla JS ES Modules)
 | Real-time | SSE + WebSocket (터미널) |
 | Terminal | node-pty + xterm.js (CDN v5) |
 | Storage | Local filesystem (JSON + JSONL + gzip) |
-| Test | Vitest (79개) |
+| Test | Vitest (90개) |
 | CLI | Commander |
 
 ---

@@ -176,6 +176,53 @@ Web Dashboard (browser, Vanilla JS ES Modules)
 
 ---
 
+## API Reference
+
+### Events
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| `POST` | `/api/events` | Receive hook event from Claude Code | `{ ok, sessionId, status }` |
+
+### Sessions
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| `GET` | `/api/sessions` | List all sessions (`?status=active,waiting_input`) | `Session[]` |
+| `GET` | `/api/sessions/:id` | Get session detail | `Session` |
+| `PATCH` | `/api/sessions/:id` | Update name/color (`{ projectName?, color? }`) | `Session` |
+| `POST` | `/api/sessions/:id/kill` | Terminate session (SIGTERM or force end) | `{ ok, method }` |
+| `POST` | `/api/sessions/:id/pin` | Toggle pin | `Session` |
+| `DELETE` | `/api/sessions/:id` | Delete session + associated logs | `{ ok, logsDeleted }` |
+| `DELETE` | `/api/sessions` | Bulk delete all inactive sessions | `{ ok, deletedSessions, deletedLogs }` |
+| `POST` | `/api/sessions/launch` | Launch new session (`{ cwd, mode, terminalApp? }`) | `{ ok, ptyId?, mode }` |
+| `POST` | `/api/sessions/cleanup` | Scan & clean stale sessions | `{ ok, checked, ended, disconnected }` |
+
+### Session Defaults (Presets)
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| `GET` | `/api/session-defaults` | List all project defaults | `{ cwd: { name?, color? } }` |
+| `PUT` | `/api/session-defaults` | Save default (`{ cwd, name?, color? }`) | `{ ok, cwd, name?, color? }` |
+| `DELETE` | `/api/session-defaults` | Remove default (`{ cwd }`) | `{ ok, cwd }` |
+
+### Logs & Stats
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| `GET` | `/api/logs` | Query logs (`?date=&sessionId=&search=&limit=&offset=`) | `LogEvent[]` |
+| `DELETE` | `/api/logs` | Delete logs (`?before=YYYY-MM-DD`) | `{ ok, deleted }` |
+| `GET` | `/api/stats` | Daily stats (`?date=`) | `{ totalEvents, prompts, responses, sessions, tools, avgIdleMs }` |
+
+### Real-time
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/events/stream` | SSE stream (`session_update`, `log_update`) |
+| `WS` | `/ws/terminal/:ptyId` | Terminal WebSocket (input/resize → output/exit) |
+
+---
+
 ## Tech Stack
 
 | Component | Technology |
@@ -187,7 +234,7 @@ Web Dashboard (browser, Vanilla JS ES Modules)
 | Real-time | SSE + WebSocket (terminal) |
 | Terminal | node-pty + xterm.js (CDN v5) |
 | Storage | Local filesystem (JSON + JSONL + gzip) |
-| Test | Vitest (79 tests) |
+| Test | Vitest (90 tests) |
 | CLI | Commander |
 
 ---

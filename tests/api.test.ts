@@ -208,6 +208,151 @@ describe('GET /api/logs', () => {
   });
 });
 
+describe('PATCH /api/sessions/:id (color)', () => {
+  it('applies valid color to session', async () => {
+    await app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { session_id: 'color-001', cwd: '/tmp/c', hook_event_name: 'SessionStart' },
+    });
+
+    const res = await app.inject({
+      method: 'PATCH', url: '/api/sessions/color-001',
+      payload: { color: 'red' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).color).toBe('red');
+  });
+
+  it('ignores invalid color', async () => {
+    await app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { session_id: 'color-002', cwd: '/tmp/c', hook_event_name: 'SessionStart' },
+    });
+
+    const res = await app.inject({
+      method: 'PATCH', url: '/api/sessions/color-002',
+      payload: { color: 'orange' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).color).toBeUndefined();
+  });
+
+  it('removes color with null', async () => {
+    await app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { session_id: 'color-003', cwd: '/tmp/c', hook_event_name: 'SessionStart' },
+    });
+    await app.inject({
+      method: 'PATCH', url: '/api/sessions/color-003',
+      payload: { color: 'blue' },
+    });
+
+    const res = await app.inject({
+      method: 'PATCH', url: '/api/sessions/color-003',
+      payload: { color: null },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).color).toBeUndefined();
+  });
+
+  it('returns 400 with empty body', async () => {
+    await app.inject({
+      method: 'POST', url: '/api/events',
+      payload: { session_id: 'color-004', cwd: '/tmp/c', hook_event_name: 'SessionStart' },
+    });
+
+    const res = await app.inject({
+      method: 'PATCH', url: '/api/sessions/color-004',
+      payload: {},
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+describe('session-defaults API', () => {
+  it('GET returns empty object initially', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/session-defaults' });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({});
+  });
+
+  it('PUT saves and GET retrieves defaults', async () => {
+    const putRes = await app.inject({
+      method: 'PUT', url: '/api/session-defaults',
+      payload: { cwd: '/proj/dashboard', name: 'Dashboard', color: 'red' },
+    });
+
+    expect(putRes.statusCode).toBe(200);
+    expect(JSON.parse(putRes.body).ok).toBe(true);
+
+    const getRes = await app.inject({ method: 'GET', url: '/api/session-defaults' });
+    const defaults = JSON.parse(getRes.body);
+    expect(defaults['/proj/dashboard']).toEqual({ name: 'Dashboard', color: 'red' });
+  });
+
+  it('PUT rejects excluded cwd (home directory)', async () => {
+    const res = await app.inject({
+      method: 'PUT', url: '/api/session-defaults',
+      payload: { cwd: os.homedir(), name: 'Home' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body).error).toContain('generic path');
+  });
+
+  it('PUT rejects empty body', async () => {
+    const res = await app.inject({
+      method: 'PUT', url: '/api/session-defaults',
+      payload: { cwd: '/proj/x' },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('DELETE removes existing default', async () => {
+    await app.inject({
+      method: 'PUT', url: '/api/session-defaults',
+      payload: { cwd: '/proj/to-delete', name: 'X' },
+    });
+
+    const res = await app.inject({
+      method: 'DELETE', url: '/api/session-defaults',
+      payload: { cwd: '/proj/to-delete' },
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const getRes = await app.inject({ method: 'GET', url: '/api/session-defaults' });
+    expect(JSON.parse(getRes.body)['/proj/to-delete']).toBeUndefined();
+  });
+
+  it('DELETE returns 404 for unknown cwd', async () => {
+    const res = await app.inject({
+      method: 'DELETE', url: '/api/session-defaults',
+      payload: { cwd: '/nonexistent' },
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+describe('POST /api/sessions/cleanup', () => {
+  it('returns check results with disconnected count', async () => {
+    const res = await app.inject({ method: 'POST', url: '/api/sessions/cleanup' });
+    const body = JSON.parse(res.body);
+
+    expect(res.statusCode).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(typeof body.checked).toBe('number');
+    expect(typeof body.ended).toBe('number');
+    expect(typeof body.disconnected).toBe('number');
+  });
+});
+
 describe('GET /api/stats', () => {
   it('returns stats for today', async () => {
     await app.inject({
