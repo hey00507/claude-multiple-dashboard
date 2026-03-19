@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Claude Multiple Dashboard</title>
   <link rel="stylesheet" href="/styles/main.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/lib/xterm.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0/lib/addon-fit.min.js"></script>
 </head>
 <body>
   <div id="app">
@@ -17,21 +14,10 @@
         <span id="session-count" class="session-count"></span>
         <button id="btn-cleanup" class="btn-action btn-cleanup" title="비활성 세션 정리">정리</button>
         <button id="btn-new-session" class="btn-action">+ 새 세션</button>
-        <button id="btn-terminal-grid" class="btn-action btn-terminal-grid" title="터미널 그리드 뷰">터미널</button>
         <button id="btn-theme" class="btn-theme" title="테마 전환"></button>
         <button id="btn-shortcuts" class="btn-shortcuts" title="단축키 도움말 (?)">?</button>
       </div>
     </header>
-    <section id="terminal-grid-view" class="terminal-grid-view" hidden>
-      <div class="terminal-grid-header">
-        <span id="terminal-grid-count"></span>
-        <div class="terminal-grid-header-actions">
-          <button id="btn-grid-new-session" class="btn-action">+ 새 세션</button>
-          <button id="btn-close-grid" class="btn-action">대시보드</button>
-        </div>
-      </div>
-      <div id="terminal-grid" class="terminal-grid"></div>
-    </section>
     <div class="main-layout" id="main-layout">
       <main>
         <section id="sessions" class="sessions-grid">
@@ -83,16 +69,7 @@
           </div>
         </div>
         <div class="detail-meta" id="detail-meta"></div>
-        <div class="detail-tabs" id="detail-tabs">
-          <button class="detail-tab active" data-tab="timeline">타임라인</button>
-          <button class="detail-tab" data-tab="terminal">터미널 <span id="terminal-status" class="terminal-status-dot"></span></button>
-        </div>
-        <div class="detail-tab-content" id="tab-timeline">
-          <div class="detail-timeline" id="detail-timeline"></div>
-        </div>
-        <div class="detail-tab-content" id="tab-terminal" hidden>
-          <div class="terminal-container" id="terminal-container"></div>
-        </div>
+        <div class="detail-timeline" id="detail-timeline"></div>
       </aside>
     </div>
   </div>
@@ -138,22 +115,15 @@
       <div style="padding:20px">
         <label class="launch-label">프로젝트 경로</label>
         <input type="text" id="launch-cwd-input" class="launch-input" placeholder="~/my-project" value="~/" autocomplete="off" />
-        <label class="launch-label" style="margin-top:12px">실행 방식</label>
-        <div class="launch-mode-group">
-          <label class="launch-radio"><input type="radio" name="launch-mode" value="pty" checked /> 브라우저 터미널 (PTY)</label>
-          <label class="launch-radio"><input type="radio" name="launch-mode" value="terminal" /> 외부 터미널</label>
-        </div>
-        <div id="terminal-app-group" style="display:none;margin-top:8px">
-          <label class="launch-label">터미널 앱</label>
-          <select id="launch-terminal-app" class="launch-input" style="font-family:inherit">
-            <option value="">시스템 기본</option>
-            <option value="Ghostty">Ghostty</option>
-            <option value="Terminal">Terminal.app</option>
-            <option value="iTerm">iTerm2</option>
-            <option value="Warp">Warp</option>
-            <option value="Alacritty">Alacritty</option>
-          </select>
-        </div>
+        <label class="launch-label" style="margin-top:12px">터미널 앱</label>
+        <select id="launch-terminal-app" class="launch-input" style="font-family:inherit">
+          <option value="">시스템 기본</option>
+          <option value="Ghostty">Ghostty</option>
+          <option value="Terminal">Terminal.app</option>
+          <option value="iTerm">iTerm2</option>
+          <option value="Warp">Warp</option>
+          <option value="Alacritty">Alacritty</option>
+        </select>
         <div class="launch-actions">
           <button class="btn-cancel" id="launch-cancel-btn">취소</button>
           <button class="btn-launch" id="launch-start-btn">시작</button>

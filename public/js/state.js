@@ -32,7 +32,4 @@ export const state = {
   searchQuery: '',
   notificationsEnabled: false,
   inactiveSessionsOpen: false,
-  activeTab: 'timeline',       // 'timeline' | 'terminal'
-  activePtyId: null,           // current PTY session ID for terminal tab
-  gridVisible: false,          // true when terminal grid view is shown
 };

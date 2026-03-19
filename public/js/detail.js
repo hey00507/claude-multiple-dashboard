@@ -2,22 +2,11 @@ import { state, STATUS_ICONS, ACTIVE_STATUSES } from './state.js';
 import { htmlEscape, truncate, downloadFile } from './utils.js';
 import { renderSessions } from './sessions.js';
 import { fetchHistory, fetchStats } from './history.js';
-import { initTerminal, connectTerminal, disconnectTerminal, pauseTerminal, resumeTerminal, disposeTerminal, fitTerminal, getCurrentPtyId, updateTerminalTheme } from './terminal.js';
-// Lazy import to avoid circular dependency (detail ↔ history ↔ detail)
-let _gridModule = null;
-async function getGridModule() {
-  if (!_gridModule) _gridModule = await import('./terminal-grid.js');
-  return _gridModule;
-}
 
 const detailPanel = document.getElementById('detail-panel');
 const detailTitle = document.getElementById('detail-title');
 const detailMeta = document.getElementById('detail-meta');
 const detailTimeline = document.getElementById('detail-timeline');
-const detailTabs = document.getElementById('detail-tabs');
-const tabTimeline = document.getElementById('tab-timeline');
-const tabTerminal = document.getElementById('tab-terminal');
-const terminalContainer = document.getElementById('terminal-container');
 
 export async function openDetail(sessionId) {
   state.selectedSessionId = sessionId;
@@ -33,35 +22,6 @@ export async function openDetail(sessionId) {
 
   renderDetail(session, logs);
   detailPanel.removeAttribute('hidden');
-
-  // Determine PTY info
-  let ptyId = session.ptyId || null;
-
-  if (!ptyId && session.source === 'pty') {
-    // Try fetching PTY info from API
-    try {
-      const ptyRes = await fetch(`/api/sessions/${sessionId}/pty`);
-      if (ptyRes.ok) ptyId = (await ptyRes.json()).ptyId;
-    } catch { /* ignore */ }
-  }
-
-  if (ptyId) {
-    state.activePtyId = ptyId;
-    enableTerminalTab();
-    // If grid is active, show terminal tab but don't connect (grid owns WS)
-    if (state.gridVisible) {
-      switchTab('terminal');
-    } else if (getCurrentPtyId() === ptyId) {
-      switchTab('terminal');
-      resumeTerminal();
-    } else {
-      switchTab('terminal');
-    }
-  } else {
-    state.activePtyId = null;
-    disableTerminalTab();
-    switchTab('timeline');
-  }
 }
 
 export function closeDetail() {
@@ -69,59 +29,7 @@ export function closeDetail() {
   detailPanel.setAttribute('hidden', '');
   detailPanel.classList.remove('fullview');
   document.querySelectorAll('.session-card').forEach(el => el.classList.remove('selected'));
-  // Pause WS but keep PTY alive — user can reconnect by clicking the session again
-  pauseTerminal();
 }
-
-function enableTerminalTab() {
-  const termTab = detailTabs.querySelector('[data-tab="terminal"]');
-  if (termTab) {
-    termTab.disabled = false;
-    termTab.classList.remove('disabled');
-  }
-}
-
-function disableTerminalTab() {
-  const termTab = detailTabs.querySelector('[data-tab="terminal"]');
-  if (termTab) {
-    termTab.disabled = true;
-    termTab.classList.add('disabled');
-  }
-}
-
-export function switchTab(tabName) {
-  state.activeTab = tabName;
-
-  // Update tab buttons
-  detailTabs.querySelectorAll('.detail-tab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === tabName);
-  });
-
-  // Show/hide tab content
-  tabTimeline.hidden = tabName !== 'timeline';
-  tabTerminal.hidden = tabName !== 'terminal';
-
-  if (tabName === 'terminal' && state.activePtyId) {
-    if (!terminalContainer.querySelector('.xterm')) {
-      initTerminal(terminalContainer);
-    }
-    // Don't connect while grid is active — grid owns all WS connections
-    if (!state.gridVisible) {
-      connectTerminal(state.activePtyId);
-    }
-    requestAnimationFrame(() => fitTerminal());
-  } else if (tabName === 'timeline') {
-    // Just pause WS when switching to timeline — don't kill the connection
-    pauseTerminal();
-  }
-}
-
-// Tab click handler
-detailTabs.addEventListener('click', (e) => {
-  const tab = e.target.closest('.detail-tab');
-  if (!tab || tab.disabled) return;
-  switchTab(tab.dataset.tab);
-});
 
 function renderDetail(session, logs) {
   const icon = STATUS_ICONS[session.status] || '?';
@@ -135,10 +43,8 @@ function renderDetail(session, logs) {
   const lastActivity = new Date(session.lastActivityAt).toLocaleString('ko-KR');
   const ended = session.endedAt ? new Date(session.endedAt).toLocaleString('ko-KR') : null;
 
-  const sourceLabel = session.source === 'pty' ? '<span class="badge badge-pty">PTY</span>' : '';
-
   detailMeta.innerHTML = `
-    <div class="meta-item"><span class="meta-label">상태</span><span class="meta-value"><span class="status-dot ${session.status}"></span>${session.status} ${sourceLabel}</span></div>
+    <div class="meta-item"><span class="meta-label">상태</span><span class="meta-value"><span class="status-dot ${session.status}"></span>${session.status}</span></div>
     <div class="meta-item"><span class="meta-label">디렉토리</span><span class="meta-value">${session.cwd.replace(/^\/Users\/[^/]+/, '~')}</span></div>
     <div class="meta-item"><span class="meta-label">시작</span><span class="meta-value">${started}</span></div>
     <div class="meta-item"><span class="meta-label">마지막 활동</span><span class="meta-value">${lastActivity}</span></div>
@@ -216,7 +122,6 @@ export async function killSession(sessionId) {
   const res = await fetch(`/api/sessions/${sessionId}/kill`, { method: 'POST' });
   if (res.ok) {
     const data = await res.json();
-    // Update local state immediately
     const idx = state.sessions.findIndex(s => s.sessionId === sessionId);
     if (idx >= 0) {
       state.sessions[idx].status = 'ended';
@@ -224,14 +129,12 @@ export async function killSession(sessionId) {
     }
     renderSessions();
 
-    // Show feedback
     const toast = document.createElement('div');
     toast.className = 'copy-toast';
     toast.textContent = data.method === 'sigterm' ? '프로세스 종료됨' : '세션 종료 처리됨';
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 1500);
 
-    // Refresh detail panel
     if (state.selectedSessionId === sessionId) {
       openDetail(sessionId);
     }
@@ -245,21 +148,9 @@ export async function killSession(sessionId) {
 
 const launchOverlay = document.getElementById('launch-modal-overlay');
 const launchCwdInput = document.getElementById('launch-cwd-input');
-const terminalAppGroup = document.getElementById('terminal-app-group');
-const terminalAppSelect = document.getElementById('launch-terminal-app');
-
-// Toggle terminal app selector based on mode radio
-document.querySelectorAll('input[name="launch-mode"]').forEach(radio => {
-  radio.addEventListener('change', () => {
-    const mode = document.querySelector('input[name="launch-mode"]:checked').value;
-    terminalAppGroup.style.display = mode === 'terminal' ? '' : 'none';
-  });
-});
 
 export function launchSession() {
   launchCwdInput.value = '~/';
-  document.querySelector('input[name="launch-mode"][value="pty"]').checked = true;
-  terminalAppGroup.style.display = 'none';
   launchOverlay.classList.add('active');
   setTimeout(() => {
     launchCwdInput.focus();
@@ -275,13 +166,11 @@ async function doLaunch() {
   const cwd = launchCwdInput.value.trim();
   if (!cwd) return;
 
-  const mode = document.querySelector('input[name="launch-mode"]:checked').value;
-  const terminalApp = terminalAppSelect.value || undefined;
-
+  const terminalApp = document.getElementById('launch-terminal-app').value || undefined;
   closeLaunchModal();
 
-  const body = { cwd, mode };
-  if (mode === 'terminal' && terminalApp) body.terminalApp = terminalApp;
+  const body = { cwd };
+  if (terminalApp) body.terminalApp = terminalApp;
 
   const res = await fetch('/api/sessions/launch', {
     method: 'POST',
@@ -289,32 +178,7 @@ async function doLaunch() {
     body: JSON.stringify(body),
   });
 
-  if (res.ok) {
-    const data = await res.json();
-
-    if (data.mode === 'pty') {
-      const grid = await getGridModule();
-      if (grid.isGridVisible()) {
-        // Grid view: just refresh grid to include new session
-        setTimeout(() => grid.refreshGrid(), 1500);
-      } else {
-        // Detail panel view: open terminal tab
-        state.activePtyId = data.ptyId;
-
-        detailTitle.textContent = `🟢 ${cwd.split('/').filter(Boolean).pop() || cwd}`;
-        detailMeta.innerHTML = `
-          <div class="meta-item"><span class="meta-label">디렉토리</span><span class="meta-value">${cwd.replace(/^\/Users\/[^/]+/, '~')}</span></div>
-          <div class="meta-item"><span class="meta-label">상태</span><span class="meta-value"><span class="status-dot active"></span>시작 중... <span class="badge badge-pty">PTY</span></span></div>
-        `;
-        detailTimeline.innerHTML = '<p class="empty-state" style="padding:24px 0">세션 시작 중...</p>';
-
-        detailPanel.removeAttribute('hidden');
-        enableTerminalTab();
-        switchTab('terminal');
-      }
-    }
-    // terminal mode: external app opens, nothing more to do
-  } else {
+  if (!res.ok) {
     const err = await res.json();
     alert(err.error || '실행 실패');
   }
@@ -441,6 +305,3 @@ export function showModal(title, text) {
 export function closeModal() {
   document.getElementById('modal-overlay').classList.remove('active');
 }
-
-// Export for theme toggle integration
-export { updateTerminalTheme };

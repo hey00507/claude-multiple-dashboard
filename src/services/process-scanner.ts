@@ -1,7 +1,6 @@
 import { execSync } from 'child_process';
 import fs from 'fs';
 import { getSessionsByStatus, handleEvent, setSessionDisconnected } from './session-store.js';
-import { getAllPtySessions } from './pty-manager.js';
 import type { Session } from '../types.js';
 
 /**
@@ -83,17 +82,7 @@ export function scanAndClean(): { checked: number; ended: number; disconnected: 
     const liveSessions = getSessionsByStatus(['active', 'waiting_input', 'waiting_permission', 'disconnected']);
     if (liveSessions.length === 0) return { checked: 0, ended: 0, disconnected: 0, stillActive: 0 };
 
-    // PTY-managed sessions: skip (lifecycle handled by pty-manager)
-    const ptySessionIds = new Set(
-      getAllPtySessions()
-        .filter(p => p.sessionId && !p.exited)
-        .map(p => p.sessionId)
-    );
-
-    const hookSessions = liveSessions.filter(s => !ptySessionIds.has(s.sessionId));
-    if (hookSessions.length === 0) {
-      return { checked: liveSessions.length, ended: 0, disconnected: 0, stillActive: liveSessions.length };
-    }
+    const hookSessions = liveSessions;
 
     const claudePids = getClaudePids();
 

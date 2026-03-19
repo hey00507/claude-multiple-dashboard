@@ -13,13 +13,6 @@ vi.mock('child_process', () => ({
   execSync: (...args: unknown[]) => mockExecSync(...args),
 }));
 
-// Mock pty-manager
-vi.mock('../src/services/pty-manager.js', () => ({
-  getAllPtySessions: () => [],
-  linkSessionToPty: () => false,
-  findPtyBySessionId: () => null,
-}));
-
 const { handleEvent, getSession, setSessionDisconnected } = await import('../src/services/session-store.js');
 const { scanAndClean } = await import('../src/services/process-scanner.js');
 

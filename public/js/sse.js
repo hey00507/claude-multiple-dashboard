@@ -4,7 +4,6 @@ import { todayStr, formatDuration, truncate } from './utils.js';
 import { renderSessions } from './sessions.js';
 import { renderHistory, updateProjectFilter, fetchStats } from './history.js';
 import { openDetail } from './detail.js';
-import { isGridVisible, refreshGrid } from './terminal-grid.js';
 
 export function updateTabTitle() {
   const waiting = state.sessions.filter(s => s.status === 'waiting_input' || s.status === 'waiting_permission');
@@ -54,7 +53,6 @@ export function connectSSE() {
     }
     renderSessions();
     updateTabTitle();
-    if (isGridVisible()) refreshGrid();
 
     if (state.selectedSessionId === updated.sessionId) {
       openDetail(updated.sessionId);
