@@ -45,7 +45,7 @@ export function renameSession(sessionId: string, newName: string): Session | nul
 
 const VALID_COLORS = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'];
 
-export function updateSession(sessionId: string, updates: { projectName?: string; color?: string | null }): Session | null {
+export function updateSession(sessionId: string, updates: { projectName?: string; color?: string | null; memo?: string | null }): Session | null {
   const session = getSession(sessionId);
   if (!session) return null;
   if (updates.projectName) {
@@ -57,6 +57,13 @@ export function updateSession(sessionId: string, updates: { projectName?: string
       delete session.color;
     } else if (VALID_COLORS.includes(updates.color)) {
       session.color = updates.color;
+    }
+  }
+  if (updates.memo !== undefined) {
+    if (updates.memo === null || updates.memo === '') {
+      delete session.memo;
+    } else {
+      session.memo = updates.memo.trim().slice(0, 200);
     }
   }
   saveSession(session);

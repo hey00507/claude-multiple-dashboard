@@ -24,12 +24,12 @@ export async function sessionsRoute(app: FastifyInstance) {
     return session;
   });
 
-  app.patch<{ Params: { sessionId: string }; Body: { projectName?: string; color?: string | null } }>('/api/sessions/:sessionId', async (request, reply) => {
-    const { projectName, color } = request.body;
-    if (!projectName && color === undefined) {
-      return reply.status(400).send({ error: 'projectName or color is required' });
+  app.patch<{ Params: { sessionId: string }; Body: { projectName?: string; color?: string | null; memo?: string | null } }>('/api/sessions/:sessionId', async (request, reply) => {
+    const { projectName, color, memo } = request.body;
+    if (!projectName && color === undefined && memo === undefined) {
+      return reply.status(400).send({ error: 'projectName, color, or memo is required' });
     }
-    const session = updateSession(request.params.sessionId, { projectName, color });
+    const session = updateSession(request.params.sessionId, { projectName, color, memo });
     if (!session) return reply.status(404).send({ error: 'Session not found' });
     return session;
   });

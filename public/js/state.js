@@ -32,4 +32,5 @@ export const state = {
   searchQuery: '',
   notificationsEnabled: false,
   inactiveSessionsOpen: false,
+  colorFilter: null,  // null = all, or 'red', 'green', etc.
 };

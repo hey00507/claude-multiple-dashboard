@@ -50,6 +50,10 @@ function renderDetail(session, logs) {
     <div class="meta-item"><span class="meta-label">마지막 활동</span><span class="meta-value">${lastActivity}</span></div>
     ${ended ? `<div class="meta-item"><span class="meta-label">종료</span><span class="meta-value">${ended}</span></div>` : ''}
     <div class="meta-item"><span class="meta-label">총 이벤트</span><span class="meta-value">${session.totalEvents}</span></div>
+    <div class="meta-item meta-memo">
+      <span class="meta-label">메모</span>
+      <input type="text" class="memo-input" id="detail-memo" value="${session.memo ? session.memo.replace(/"/g, '&quot;') : ''}" placeholder="메모 입력..." maxlength="200" data-session-id="${session.sessionId}" />
+    </div>
   `;
 
   if (logs.length === 0) {
@@ -305,3 +309,27 @@ export function showModal(title, text) {
 export function closeModal() {
   document.getElementById('modal-overlay').classList.remove('active');
 }
+
+// --- Memo: debounced save on input ---
+
+let memoTimeout = null;
+detailMeta.addEventListener('input', (e) => {
+  if (!e.target.matches('.memo-input')) return;
+  clearTimeout(memoTimeout);
+  const input = e.target;
+  const sessionId = input.dataset.sessionId;
+  const memo = input.value.trim();
+  memoTimeout = setTimeout(async () => {
+    const res = await fetch(`/api/sessions/${sessionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memo: memo || null }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      const idx = state.sessions.findIndex(s => s.sessionId === sessionId);
+      if (idx >= 0) state.sessions[idx] = updated;
+      renderSessions();
+    }
+  }, 500);
+});

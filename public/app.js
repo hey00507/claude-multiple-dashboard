@@ -115,6 +115,22 @@ document.getElementById('modal-overlay').addEventListener('click', (e) => {
 });
 
 document.addEventListener('click', (e) => {
+  // Color picker on session card
+  const pickerDot = e.target.closest('.color-picker-dot');
+  if (pickerDot) {
+    e.stopPropagation();
+    showColorPicker(pickerDot);
+    return;
+  }
+
+  const colorDot = e.target.closest('.color-filter-dot, .color-filter-all');
+  if (colorDot) {
+    const color = colorDot.dataset.color;
+    state.colorFilter = color || null;
+    renderSessions();
+    return;
+  }
+
   const statCard = e.target.closest('.stat-card.clickable[data-filter]');
   if (statCard) {
     applyFilterFromStats(statCard.dataset.filter);
@@ -259,6 +275,66 @@ document.addEventListener('keydown', (e) => {
     searchInput.focus();
   }
 });
+
+// --- Color Picker ---
+
+const PICKER_COLORS = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'];
+let activePickerPopup = null;
+
+function showColorPicker(dotEl) {
+  closeColorPicker();
+  const sessionId = dotEl.dataset.sessionId;
+  const rect = dotEl.getBoundingClientRect();
+
+  const popup = document.createElement('div');
+  popup.className = 'color-picker-popup';
+  popup.style.top = `${rect.bottom + 4}px`;
+  popup.style.left = `${rect.left}px`;
+
+  popup.innerHTML = PICKER_COLORS.map(c =>
+    `<button class="color-picker-option ${c}" data-color="${c}" title="${c}"></button>`
+  ).join('') + `<button class="color-picker-option none" data-color="" title="색상 제거">✕</button>`;
+
+  popup.addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('.color-picker-option');
+    if (!btn) return;
+    const color = btn.dataset.color || null;
+    closeColorPicker();
+
+    const res = await fetch(`/api/sessions/${sessionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ color }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      const idx = state.sessions.findIndex(s => s.sessionId === sessionId);
+      if (idx >= 0) state.sessions[idx] = updated;
+      renderSessions();
+    }
+  });
+
+  document.body.appendChild(popup);
+  activePickerPopup = popup;
+
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', closeColorPickerOnOutside, { once: true });
+  }, 0);
+}
+
+function closeColorPicker() {
+  if (activePickerPopup) {
+    activePickerPopup.remove();
+    activePickerPopup = null;
+  }
+}
+
+function closeColorPickerOnOutside(e) {
+  if (activePickerPopup && !activePickerPopup.contains(e.target)) {
+    closeColorPicker();
+  }
+}
 
 // --- Init ---
 

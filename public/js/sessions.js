@@ -86,8 +86,9 @@ function renderSessionCard(s) {
   metaParts.push(`⏱ ${elapsed}`);
   const metaHtml = `<div class="session-meta" data-started="${s.startedAt}">${metaParts.join(' · ')}</div>`;
 
-  const sourceBadge = s.source === 'pty' ? '<span class="badge badge-pty">PTY</span>' : '';
   const colorAttr = s.color ? ` data-color="${s.color}"` : '';
+  const memoHtml = s.memo ? `<div class="session-memo">${htmlEscape(s.memo)}</div>` : '';
+  const colorDotClass = s.color ? `color-picker-dot ${s.color}` : 'color-picker-dot none';
 
   return `
     <div class="session-card${selected}"${colorAttr} data-session-id="${s.sessionId}">
@@ -95,7 +96,7 @@ function renderSessionCard(s) {
         <span class="project-name">
           <span class="status-dot ${s.status}"></span>${icon}
           <span class="project-name-text" data-session-id="${s.sessionId}">${htmlEscape(s.projectName)}</span>
-          ${sourceBadge}
+          <button class="${colorDotClass}" data-session-id="${s.sessionId}" title="색상 변경"></button>
           <button class="btn-pin" data-session-id="${s.sessionId}" title="${s.pinned ? '핀 해제' : '핀 고정'}">${s.pinned ? '📌' : '📍'}</button>
           <button class="btn-rename" data-session-id="${s.sessionId}" title="이름 변경">✏️</button>
         </span>
@@ -103,6 +104,7 @@ function renderSessionCard(s) {
       </div>
       ${metaHtml}
       <div class="cwd">${s.cwd.replace(/^\/Users\/[^/]+/, '~')}</div>
+      ${memoHtml}
       <div class="last-activity">${activity}${viewBtn}</div>
     </div>
   `;
@@ -144,6 +146,23 @@ function renderInactiveGroupedCards(sessionList) {
   }).join('');
 }
 
+const COLORS = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'];
+
+function renderColorFilter() {
+  const usedColors = new Set(state.sessions.map(s => s.color).filter(Boolean));
+  if (usedColors.size === 0) return '';
+
+  const dots = COLORS
+    .filter(c => usedColors.has(c))
+    .map(c => {
+      const active = state.colorFilter === c ? ' active' : '';
+      return `<button class="color-filter-dot${active}" data-color="${c}" title="${c}"></button>`;
+    }).join('');
+
+  const allActive = state.colorFilter === null ? ' active' : '';
+  return `<div class="color-filter-bar"><button class="color-filter-all${allActive}" data-color="">전체</button>${dots}</div>`;
+}
+
 export function renderSessions() {
   const active = state.sessions.filter(s => ACTIVE_STATUSES.includes(s.status));
   sessionCountEl.textContent = active.length > 0 ? `${active.length}개 활성 세션` : '';
@@ -161,11 +180,14 @@ export function renderSessions() {
     return;
   }
 
-  const sorted = sortSessions([...state.sessions]);
+  const filtered = state.colorFilter
+    ? state.sessions.filter(s => s.color === state.colorFilter)
+    : state.sessions;
+  const sorted = sortSessions([...filtered]);
   const activeSessions = sorted.filter(s => ACTIVE_STATUSES.includes(s.status));
   const inactiveSessions = sorted.filter(s => !ACTIVE_STATUSES.includes(s.status));
 
-  let html = '';
+  let html = renderColorFilter();
 
   if (activeSessions.length > 0) {
     html += renderGroupedCards(activeSessions);

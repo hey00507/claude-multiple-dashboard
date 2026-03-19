@@ -23,6 +23,7 @@ export interface Session {
   totalEvents: number;
   pinned?: boolean;
   color?: string;
+  memo?: string;
   transcriptPath?: string;
   source?: 'hook' | 'pty';
   ptyId?: string;
