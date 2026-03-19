@@ -1,9 +1,9 @@
 import { state, PAGE_SIZE } from './state.js';
-import { todayStr, formatDuration, truncate } from './utils.js';
-// (renderSessions imported in sessions.js)
+import { todayStr, formatDuration } from './utils.js';
 import { renderSessions } from './sessions.js';
 import { renderHistory, updateProjectFilter, fetchStats } from './history.js';
 import { openDetail } from './detail.js';
+import { checkSessionTransition, checkIdleThreshold } from './notifications.js';
 
 export function updateTabTitle() {
   const waiting = state.sessions.filter(s => s.status === 'waiting_input' || s.status === 'waiting_permission');
@@ -17,15 +17,6 @@ export function requestNotificationPermission() {
   } else {
     state.notificationsEnabled = Notification.permission === 'granted';
   }
-}
-
-function sendIdleNotification(session) {
-  if (!state.notificationsEnabled || document.hasFocus()) return;
-  const n = new Notification(`${session.projectName} — 입력 대기 중`, {
-    body: session.lastResponse ? truncate(session.lastResponse, 100) : '응답 완료',
-    tag: session.sessionId,
-  });
-  setTimeout(() => n.close(), 8000);
 }
 
 let statsDebounce = null;
@@ -42,9 +33,8 @@ export function connectSSE() {
     const idx = state.sessions.findIndex(s => s.sessionId === updated.sessionId);
     const prev = idx >= 0 ? state.sessions[idx] : null;
 
-    if (prev && prev.status === 'active' && (updated.status === 'waiting_input' || updated.status === 'waiting_permission')) {
-      sendIdleNotification(updated);
-    }
+    // Check notification conditions
+    checkSessionTransition(prev, updated);
 
     if (idx >= 0) {
       state.sessions[idx] = updated;
@@ -87,7 +77,6 @@ setInterval(async () => {
     const res = await fetch('/api/sessions');
     if (!res.ok) return;
     const sessions = await res.json();
-    // Only update if session count or status changed
     const currentKey = state.sessions.map(s => s.sessionId + s.status).join(',');
     const newKey = sessions.map(s => s.sessionId + s.status).join(',');
     if (currentKey !== newKey) {
@@ -98,7 +87,7 @@ setInterval(async () => {
   } catch { /* ignore */ }
 }, 10_000);
 
-// Idle timer + elapsed time updater
+// Idle timer + elapsed time updater + idle threshold check
 setInterval(() => {
   const now = Date.now();
   document.querySelectorAll('.idle-time[data-since]').forEach(el => {
@@ -108,8 +97,8 @@ setInterval(() => {
   document.querySelectorAll('.session-meta[data-started]').forEach(el => {
     const started = new Date(el.dataset.started).getTime();
     const text = el.textContent;
-    // Replace the elapsed time portion (⏱ ...)
     el.textContent = text.replace(/⏱ [\d:]+/, `⏱ ${formatDuration(now - started)}`);
   });
   updateTabTitle();
+  checkIdleThreshold();
 }, 1000);

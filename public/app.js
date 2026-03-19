@@ -4,6 +4,7 @@ import { renderSessions, sortSessions } from './js/sessions.js';
 import { fetchHistory, renderHistory, exportJSON, exportCSV, fetchStats, applyFilterFromStats } from './js/history.js';
 import { openDetail, closeDetail, closeModal, showModal, copyToClipboard, exportTranscript, deleteSessionFromPanel, killSession, launchSession, closeLaunchModal, renameSession, deleteAllInactiveSessions } from './js/detail.js';
 import { connectSSE, requestNotificationPermission } from './js/sse.js';
+import { renderNotificationSettings, renderNotificationHistory, updateNotificationBadge, clearHistory } from './js/notifications.js';
 import './js/theme.js';
 
 // --- DOM refs ---
@@ -170,6 +171,36 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// --- Notification Panel ---
+
+const notifPanel = document.getElementById('notification-panel');
+
+function toggleNotifPanel() {
+  const wasHidden = notifPanel.hidden;
+  notifPanel.hidden = !wasHidden;
+  if (wasHidden) {
+    renderNotificationSettings();
+    renderNotificationHistory();
+    updateNotificationBadge();
+  }
+}
+
+document.getElementById('btn-notifications').addEventListener('click', toggleNotifPanel);
+document.getElementById('notif-panel-close').addEventListener('click', () => { notifPanel.hidden = true; });
+document.getElementById('notif-clear-history').addEventListener('click', clearHistory);
+
+// Notification panel tab switching
+document.querySelectorAll('.notif-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.notif-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const target = tab.dataset.notifTab;
+    document.getElementById('notif-tab-history').hidden = target !== 'history';
+    document.getElementById('notif-tab-settings').hidden = target !== 'settings';
+    if (target === 'settings') renderNotificationSettings();
+  });
+});
+
 // --- Shortcuts Panel ---
 
 const shortcutsPanel = document.getElementById('shortcuts-panel');
@@ -188,6 +219,7 @@ document.addEventListener('keydown', (e) => {
 
   if (e.key === 'Escape') {
     if (isTyping) { searchInput.blur(); return; }
+    if (!notifPanel.hidden) { notifPanel.hidden = true; return; }
     if (!shortcutsPanel.hidden) { shortcutsPanel.hidden = true; return; }
     if (document.getElementById('launch-modal-overlay').classList.contains('active')) {
       closeLaunchModal();
@@ -236,3 +268,4 @@ fetchHistory();
 fetchStats();
 connectSSE();
 requestNotificationPermission();
+updateNotificationBadge();

@@ -14,6 +14,10 @@
         <span id="session-count" class="session-count"></span>
         <button id="btn-cleanup" class="btn-action btn-cleanup" title="비활성 세션 정리">정리</button>
         <button id="btn-new-session" class="btn-action">+ 새 세션</button>
+        <button id="btn-notifications" class="btn-notifications" title="알림 설정">
+          <span class="notif-icon">&#128276;</span>
+          <span id="notif-badge" class="notif-badge" hidden></span>
+        </button>
         <button id="btn-theme" class="btn-theme" title="테마 전환"></button>
         <button id="btn-shortcuts" class="btn-shortcuts" title="단축키 도움말 (?)">?</button>
       </div>
@@ -71,6 +75,24 @@
         <div class="detail-meta" id="detail-meta"></div>
         <div class="detail-timeline" id="detail-timeline"></div>
       </aside>
+    </div>
+  </div>
+  <div id="notification-panel" class="notification-panel" hidden>
+    <div class="notif-panel-header">
+      <div class="notif-panel-tabs">
+        <button class="notif-tab active" data-notif-tab="history">히스토리</button>
+        <button class="notif-tab" data-notif-tab="settings">설정</button>
+      </div>
+      <button id="notif-panel-close" class="btn-close">&times;</button>
+    </div>
+    <div class="notif-tab-content" id="notif-tab-history">
+      <div class="notif-history-actions">
+        <button id="notif-clear-history" class="btn-notif-clear">전체 삭제</button>
+      </div>
+      <div id="notification-history-list"></div>
+    </div>
+    <div class="notif-tab-content" id="notif-tab-settings" hidden>
+      <div id="notification-settings"></div>
     </div>
   </div>
   <div id="shortcuts-panel" class="shortcuts-panel" hidden>
