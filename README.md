@@ -13,11 +13,12 @@ A real-time web dashboard for monitoring **multiple Claude Code sessions** in pa
 | Feature | Description |
 |---------|-------------|
 | **Real-time Monitoring** | 🟢 Active / 🟡 Waiting Input / 🟠 Waiting Permission / ⚪ Ended / 🔴 Disconnected |
-| **Session Colors** | Color-coded session cards with `/session-setting` integration |
+| **Session Colors** | Color-coded cards with inline color picker + `/session-setting` integration |
+| **Notification System** | Configurable alerts for state changes, permission requests, idle threshold + sound |
 | **Idle Time Counter** | Live `⏱ idle MM:SS` from the moment a session starts waiting |
 | **Model & Context** | Model name, context usage (ctx: N%), elapsed time on each card |
-| **Browser Terminal** | Run Claude Code directly in the dashboard via xterm.js + node-pty |
-| **Terminal Grid** | View all PTY sessions simultaneously in a responsive grid |
+| **Session Memo** | Per-session notes for tracking what each session is working on |
+| **Color Filter** | Filter sessions by color with one-click dot filter bar |
 | **Session Presets** | Save name/color per project — auto-applied on next session |
 | **Stats Dashboard** | Event/prompt/response counts + top 10 tool usage chart + hourly heatmap |
 | **Project Grouping** | Sessions in the same directory are automatically grouped |
@@ -25,10 +26,6 @@ A real-time web dashboard for monitoring **multiple Claude Code sessions** in pa
 | **Dark/Light Theme** | Auto-detects system preference + manual toggle |
 | **Keyboard Shortcuts** | j/k navigate, / search, Enter fullview, ? help |
 | **Data Export** | History as JSON/CSV + session transcript as Markdown |
-
-### Terminal Sessions
-
-![Terminal Sessions](docs/screenshots/terminal-sessions.png)
 
 ### Dark Mode + Detail Panel
 
@@ -110,6 +107,8 @@ Usage:
 
 Supported colors: `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
 
+You can also change colors directly on the dashboard by clicking the color dot on any session card.
+
 Project defaults are saved in `~/.claude-dashboard/config.json` and auto-applied on session start.
 
 ---
@@ -126,8 +125,6 @@ dashboard-hook.sh (non-blocking, 1s timeout)
 Dashboard Server (Fastify 5)
     ├── REST API (session/log CRUD + stats)
     ├── SSE Stream (real-time updates)
-    ├── WebSocket (/ws/terminal/:ptyId)
-    ├── PTY Manager (node-pty)
     └── Static Files (web dashboard)
          │
          ├── sessions/*.json    (session metadata)
@@ -156,12 +153,12 @@ Dashboard Server (Fastify 5)
 |--------|----------|-------------|----------|
 | `GET` | `/api/sessions` | List sessions (`?status=active,waiting_input`) | `Session[]` |
 | `GET` | `/api/sessions/:id` | Get session detail | `Session` |
-| `PATCH` | `/api/sessions/:id` | Update name/color (`{ projectName?, color? }`) | `Session` |
+| `PATCH` | `/api/sessions/:id` | Update name/color/memo (`{ projectName?, color?, memo? }`) | `Session` |
 | `POST` | `/api/sessions/:id/kill` | Terminate session | `{ ok, method }` |
 | `POST` | `/api/sessions/:id/pin` | Toggle pin | `Session` |
 | `DELETE` | `/api/sessions/:id` | Delete session + logs | `{ ok, logsDeleted }` |
 | `DELETE` | `/api/sessions` | Bulk delete inactive sessions | `{ ok, deletedSessions, deletedLogs }` |
-| `POST` | `/api/sessions/launch` | Launch new session (`{ cwd, mode }`) | `{ ok, ptyId?, mode }` |
+| `POST` | `/api/sessions/launch` | Launch new session (`{ cwd, terminalApp? }`) | `{ ok, cwd, terminal }` |
 | `POST` | `/api/sessions/cleanup` | Scan & clean stale sessions | `{ ok, checked, ended, disconnected }` |
 
 ### Session Defaults
@@ -185,7 +182,6 @@ Dashboard Server (Fastify 5)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/events/stream` | SSE stream (`session_update`, `log_update`) |
-| `WS` | `/ws/terminal/:ptyId` | Terminal WebSocket (input/resize → output/exit) |
 
 ---
 
@@ -197,10 +193,9 @@ Dashboard Server (Fastify 5)
 | Language | TypeScript (strict) |
 | Server | Fastify 5 |
 | Frontend | Vanilla JS (ES Modules, no build tools) |
-| Real-time | SSE + WebSocket (terminal) |
-| Terminal | node-pty + xterm.js (CDN v5) |
+| Real-time | SSE |
 | Storage | Local filesystem (JSON + JSONL + gzip) |
-| Test | Vitest (90 tests) |
+| Test | Vitest (76 tests) |
 | CLI | Commander |
 
 ---
@@ -213,13 +208,6 @@ npm test             # Run Vitest tests
 npx tsc --noEmit     # Type check
 npm run build        # TypeScript build
 ```
-
----
-
-## Blog Posts
-
-- [Claude Multiple Dashboard — 멀티 세션 관제탑 만들기](https://hey00507.github.io/posts/dev/claude-dashboard) (v0.3.0)
-- [Claude Dashboard v0.4.0 — 세션 프리셋과 3-tier Fallback](https://hey00507.github.io/posts/dev/dashboard-v040-presets) (v0.4.0)
 
 ---
 
