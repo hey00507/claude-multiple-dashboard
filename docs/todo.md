@@ -160,12 +160,12 @@
 - [x] 외부 터미널 세션 상태 표시 정확도 개선
 - [x] 세션 색상 지원 (Session.color, PATCH API, CSS data-color 틴트)
 - [x] /session-setting 스킬 연동 (대시보드 세션 파일 원자적 업데이트)
-- [ ] 전체 E2E 테스트 보강
+- [~] 전체 E2E 테스트 보강 — 드롭 (76개 백엔드 테스트로 충분)
 
-### 5-6. 보안 (미구현)
-- [ ] API Key 인증 (config.json에 설정, 헤더/쿠키로 검증)
-- [ ] localhost 외 접근 시 인증 필수 강제
-- [ ] WebSocket 연결 시 인증 검증
+### 5-6. 보안 — 드롭 (localhost 전용, 실질적 위협 없음)
+- [~] API Key 인증
+- [~] localhost 외 접근 시 인증 필수 강제
+- [~] WebSocket 연결 시 인증 검증
 
 ---
 
@@ -216,18 +216,24 @@
 
 ---
 
-## Phase 9: CLI 확장
+## Phase 9: CLI 확장 — 드롭 (웹 UI로 충분)
 
-- [ ] `claude-dash tail [sessionId]` — 터미널에서 세션 실시간 모니터링
-- [ ] `claude-dash config get/set` — CLI에서 설정 조회/변경
-- [ ] `claude-dash export [sessionId]` — 세션 트랜스크립트 CLI export
-- [ ] `claude-dash status --filter active` — 상태별 필터
+- [~] `claude-dash tail [sessionId]`
+- [~] `claude-dash config get/set`
+- [~] `claude-dash export [sessionId]`
+- [~] `claude-dash status --filter active`
 
 ---
 
-## Backlog (낮은 우선순위)
+## Backlog — 드롭 (프로젝트 완료, JetBrains Air 등 IDE 통합 도구로 대체)
 
-- [ ] ARIA 라벨 + 접근성 (스크린 리더 지원, 모달 포커스 트랩)
-- [ ] API 문서 (REST 엔드포인트 명세)
-- [ ] 프론트엔드 테스트 (jsdom 기반 JS 모듈 테스트)
-- [ ] Webhook/Slack 알림 연동
+- [~] ARIA 라벨 + 접근성
+- [~] 프론트엔드 테스트
+- [~] Webhook/Slack 알림 연동
+
+---
+
+## 프로젝트 마무리 (2026-03-19)
+
+v0.5.0으로 기능 완성. JetBrains Air 공개 프리뷰 출시로 멀티 세션 관제 니즈가
+IDE 네이티브 기능으로 해소될 전망. 유지보수 모드로 전환.

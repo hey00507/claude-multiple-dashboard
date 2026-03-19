@@ -211,6 +211,16 @@ npm run build        # TypeScript build
 
 ---
 
+## Project Status
+
+This project has reached feature-complete status at **v0.5.0** and is now in maintenance mode.
+
+With the launch of [JetBrains Air](https://blog.jetbrains.com/ko/air/2026/03/air-launches-as-public-preview/) and similar IDE-integrated AI agent tools, multi-session monitoring needs are increasingly addressed by native IDE features — parallel task execution, unified dashboards, and built-in notification systems.
+
+Claude Multiple Dashboard will continue to work as-is for anyone who needs lightweight, standalone session monitoring for Claude Code CLI.
+
+---
+
 ## Troubleshooting
 
 See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)

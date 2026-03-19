@@ -211,6 +211,16 @@ npm run build        # TypeScript 빌드
 
 ---
 
+## 프로젝트 상태
+
+이 프로젝트는 **v0.5.0**에서 기능 완성 상태에 도달했으며, 유지보수 모드로 전환되었습니다.
+
+[JetBrains Air](https://blog.jetbrains.com/ko/air/2026/03/air-launches-as-public-preview/) 등 IDE 통합 AI 에이전트 도구의 등장으로, 멀티 세션 관제 니즈가 IDE 네이티브 기능으로 자연스럽게 해소되고 있습니다 — 병렬 태스크 실행, 통합 대시보드, 내장 알림 시스템 등.
+
+Claude Multiple Dashboard는 Claude Code CLI의 가벼운 독립형 세션 모니터링이 필요한 분들을 위해 현재 상태 그대로 계속 사용 가능합니다.
+
+---
+
 ## 트러블슈팅
 
 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) 참조
